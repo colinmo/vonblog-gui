@@ -123,4 +123,5 @@ type FrontMatter struct {
 type BlogPost struct {
 	Frontmatter FrontMatter
 	Contents    string
+	Filename    string
 }

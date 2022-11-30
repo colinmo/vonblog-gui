@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -15,8 +17,11 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	html2 "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/pkg/browser"
 	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
+	meta "github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
@@ -33,12 +38,36 @@ var AppStatus AppStatusStruct
 var markdownInput *widget.Entry
 var thisPost BlogPost
 var dateFormatString = "2006-01-02 15:04:05"
+var blogTimezone = "Australia/Brisbane"
+var md goldmark.Markdown
 
 func setup() {
-	os.Setenv("TZ", "Australia/Brisbane")
+	os.Setenv("TZ", blogTimezone)
 	AppStatus = AppStatusStruct{
 		TaskCount: 0,
 	}
+	// Default Markdown parser
+	md = goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,
+			extension.Footnote,
+			meta.New(meta.WithStoresInDocument()),
+			highlighting.NewHighlighting(
+				highlighting.WithStyle("monokai"),
+				highlighting.WithFormatOptions(
+					html2.WithLineNumbers(true),
+				),
+			),
+		),
+		goldmark.WithParserOptions(
+			parser.WithAutoHeadingID(),
+			parser.WithAttribute(),
+		),
+		goldmark.WithRendererOptions(
+			html.WithUnsafe(),
+		),
+	)
+	Client = &http.Client{}
 }
 func main() {
 	setup()
@@ -69,6 +98,8 @@ func preferencesWindowSetup() {
 }
 
 func mainWindowSetup() {
+	x, y := getProjects()
+	fmt.Printf("X: %v, Y: %v\n", x, y)
 	mainWindow.Resize(fyne.NewSize(800, 800))
 	mainWindow.SetMaster()
 	mainWindow.Hide()
@@ -105,7 +136,7 @@ func mainWindowSetup() {
 	*/
 	formSelect := map[string]*widget.Select{
 		"Type":   MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
-		"Status": MakeSelectWithOptions([]string{"draft", "live"}, thisPost.Frontmatter.Status),
+		"Status": MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
 	}
 	menu := widget.NewToolbar(
 		widget.NewToolbarAction(theme.FolderOpenIcon(), func() {
@@ -113,26 +144,24 @@ func mainWindowSetup() {
 			// Pull down browsable directory list
 			// Provide navigations through list
 			// Provide buttons to download/ edit/ delete files
+			// When loading a file to edit, you have to store the sourceCommitId to save later
 		}),
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			// Validate/ parse fields as required
-			// Get the media together in a media submission
-			// Convert the fields into the Markdown post
-			// Submit to bitbucket
-			// Handle response
+			frontMatterDefaults(&thisPost.Frontmatter)
+			errors := frontMatterValidate(&thisPost.Frontmatter)
+			UpdateAllFields(formEntries, formSelect)
+			if len(errors) > 0 {
+				fmt.Printf("Failed: %v\n", errors)
+			} else {
+				// Get the media together in a media submission
+				// Convert the fields into the Markdown post
+				// Submit to bitbucket
+				// Handle response
+			}
 		}),
 		widget.NewToolbarAction(theme.DocumentPrintIcon(), func() {
 			parsedOut := markdownInput.Text
-			md := goldmark.New(
-				goldmark.WithExtensions(extension.GFM),
-				goldmark.WithParserOptions(
-					parser.WithAutoHeadingID(),
-				),
-				goldmark.WithRendererOptions(
-					html.WithHardWraps(),
-					html.WithXHTML(),
-				),
-			)
 			var buf bytes.Buffer
 			if err := md.Convert([]byte(parsedOut), &buf); err != nil {
 				panic(err)
@@ -240,4 +269,46 @@ func MakeCheckGroupWithOptions(options []string, values []string) *widget.CheckG
 	b := widget.NewCheckGroup(options, func(cng []string) {})
 	b.SetSelected(values)
 	return b
+}
+
+func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string]*widget.Select) {
+	formEntries["Title"].Text = thisPost.Frontmatter.Title
+	formEntries["Tags"].Text = strings.Join(thisPost.Frontmatter.Tags, ",")
+	formEntries["Created"].Text = thisPost.Frontmatter.Created
+	formEntries["Updated"].Text = thisPost.Frontmatter.Updated
+	formEntries["Synopsis"].Text = thisPost.Frontmatter.Synopsis
+	formEntries["FeatureImage"].Text = thisPost.Frontmatter.FeatureImage
+	formEntries["InReplyTo"].Text = thisPost.Frontmatter.InReplyTo
+	formEntries["BookmarkOf"].Text = thisPost.Frontmatter.BookmarkOf
+	formEntries["FavoriteOf"].Text = thisPost.Frontmatter.FavoriteOf
+	formEntries["RepostOf"].Text = thisPost.Frontmatter.RepostOf
+	formEntries["LikeOf"].Text = thisPost.Frontmatter.LikeOf
+	formEntries["Title"].Refresh()
+	formEntries["Tags"].Refresh()
+	formEntries["Created"].Refresh()
+	formEntries["Updated"].Refresh()
+	formEntries["Synopsis"].Refresh()
+	formEntries["FeatureImage"].Refresh()
+	formEntries["InReplyTo"].Refresh()
+	formEntries["BookmarkOf"].Refresh()
+	formEntries["FavoriteOf"].Refresh()
+	formEntries["RepostOf"].Refresh()
+	formEntries["LikeOf"].Refresh()
+	/*
+		formMedia := []struct {
+			URL  string
+			File image.NRGBA
+		}{}
+	*/
+	/*
+		AttachedMedia    []string
+		SyndicationLinks SyndicationLinksS
+		Event            Event
+		Resume           Resume
+		Item             ItemS
+	*/
+	formSelect["Type"].Selected = thisPost.Frontmatter.Type
+	formSelect["Status"].Selected = thisPost.Frontmatter.Status
+	formSelect["Type"].Refresh()
+	formSelect["Status"].Refresh()
 }
