@@ -3,15 +3,16 @@ package main
 import (
 	"bytes"
 	"os"
+	"strings"
 	"time"
 	icon "vonbloggui/icon"
 
 	fyne "fyne.io/fyne/v2"
 	app "fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/pkg/browser"
@@ -31,6 +32,7 @@ var preferencesWindow fyne.Window
 var AppStatus AppStatusStruct
 var markdownInput *widget.Entry
 var thisPost BlogPost
+var dateFormatString = "2006-01-02 15:04:05"
 
 func setup() {
 	os.Setenv("TZ", "Australia/Brisbane")
@@ -73,14 +75,52 @@ func mainWindowSetup() {
 	markdownInput = widget.NewEntry()
 	markdownInput.MultiLine = true
 	markdownInput.Wrapping = fyne.TextWrapWord
-	thisPost = BlogPost{
-		Frontmatter: FrontMatter{
-			Title: binding.NewString(),
-			Tags:  binding.NewStringList(),
-		},
-		Contents: binding.NewString(),
+	thisPost = BlogPost{}
+	formEntries := map[string]*widget.Entry{
+		"Title":        MakeEntryWithText(thisPost.Frontmatter.Title),
+		"Tags":         MakeEntryWithText(strings.Join(thisPost.Frontmatter.Tags, ",")),
+		"Created":      MakeEntryWithText(time.Now().Format(dateFormatString)),
+		"Updated":      MakeEntryWithText(""),
+		"Synopsis":     MakeEntryWithText(thisPost.Frontmatter.Synopsis),
+		"FeatureImage": MakeEntryWithText(thisPost.Frontmatter.FeatureImage),
+
+		"InReplyTo":  MakeEntryWithText(thisPost.Frontmatter.InReplyTo),
+		"BookmarkOf": MakeEntryWithText(thisPost.Frontmatter.BookmarkOf),
+		"FavoriteOf": MakeEntryWithText(thisPost.Frontmatter.FavoriteOf),
+		"RepostOf":   MakeEntryWithText(thisPost.Frontmatter.RepostOf),
+		"LikeOf":     MakeEntryWithText(thisPost.Frontmatter.LikeOf),
+	}
+	/*
+		formMedia := []struct {
+			URL  string
+			File image.NRGBA
+		}{}
+	*/
+	/*
+		AttachedMedia    []string
+		SyndicationLinks SyndicationLinksS
+		Event            Event
+		Resume           Resume
+		Item             ItemS
+	*/
+	formSelect := map[string]*widget.Select{
+		"Type":   MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
+		"Status": MakeSelectWithOptions([]string{"draft", "live"}, thisPost.Frontmatter.Status),
 	}
 	menu := widget.NewToolbar(
+		widget.NewToolbarAction(theme.FolderOpenIcon(), func() {
+			// Connect to BitBucket
+			// Pull down browsable directory list
+			// Provide navigations through list
+			// Provide buttons to download/ edit/ delete files
+		}),
+		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
+			// Validate/ parse fields as required
+			// Get the media together in a media submission
+			// Convert the fields into the Markdown post
+			// Submit to bitbucket
+			// Handle response
+		}),
 		widget.NewToolbarAction(theme.DocumentPrintIcon(), func() {
 			parsedOut := markdownInput.Text
 			md := goldmark.New(
@@ -106,33 +146,73 @@ func mainWindowSetup() {
 			browser.OpenFile(tmpFile.Name())
 			time.Sleep(time.Second * 2)
 		}),
-		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
-			// submit to bitbucket
-		}),
+		widget.NewToolbarSeparator(),
 		widget.NewToolbarAction(theme.InfoIcon(), func() {
 			// Popup window for title etc.
-			oldTitle, _ := thisPost.Frontmatter.Title.Get()
+			// @todo: Pull entries from a Bitbucket file if editing
 			dialog.ShowForm(
 				"Frontmatter",
 				"OK",
 				"Cancel",
 				[]*widget.FormItem{
-					{Text: "Title", Widget: widget.NewEntryWithData(thisPost.Frontmatter.Title)},
-					{Text: "Tags", Widget: widget.NewListWithData(thisPost.Frontmatter.Tags, func() fyne.CanvasObject { return fyne.NewContainer() }, func(y binding.DataItem, c fyne.CanvasObject) {})},
+					{Text: "Created", Widget: formEntries["Created"]},
+					{Text: "Updated", Widget: formEntries["Updated"]},
+					/*{Text: "FeatureImage", Widget: formEntries["FeatureImage"]},*/
+					{Text: "", Widget: widget.NewLabel("Indieweb")},
+					{Text: "InReplyTo", Widget: formEntries["InReplyTo"]},
+					{Text: "BookmarkOf", Widget: formEntries["BookmarkOf"]},
+					{Text: "FavoriteOf", Widget: formEntries["FavoriteOf"]},
+					{Text: "RepostOf", Widget: formEntries["RepostOf"]},
+					{Text: "LikeOf", Widget: formEntries["LikeOf"]},
+					{Text: "Extended", Widget: container.NewVBox(widget.NewButton("Event", func() {}), widget.NewButton("Resume", func() {}), widget.NewButton("Review", func() {}))},
 				},
 				func(x bool) {
 					if x {
-
-					} else {
-						thisPost.Frontmatter.Title.Set(oldTitle)
+						thisPost.Frontmatter.Title = formEntries["Title"].Text
+						thisPost.Frontmatter.Tags = strings.Split(formEntries["Tags"].Text, ",")
 					}
 				},
 				mainWindow,
 			)
 		}),
+		widget.NewToolbarAction(theme.FileImageIcon(), func() {}),
+		widget.NewToolbarSeparator(),
 	)
 	content := container.NewBorder(
-		container.NewHBox(menu),
+		container.NewVBox(
+			container.NewHBox(menu),
+			container.New(
+				layout.NewFormLayout(),
+				widget.NewLabel("Title"),
+				formEntries["Title"],
+			),
+			container.NewGridWithColumns(
+				2,
+				container.NewGridWithColumns(
+					2,
+					container.New(
+						layout.NewFormLayout(),
+						widget.NewLabel("Type"),
+						formSelect["Type"],
+					),
+					container.New(
+						layout.NewFormLayout(),
+						widget.NewLabel("Status"),
+						formSelect["Status"],
+					),
+				),
+				container.New(
+					layout.NewFormLayout(),
+					widget.NewLabel("Tags"),
+					formEntries["Tags"],
+				),
+			),
+			container.New(
+				layout.NewFormLayout(),
+				widget.NewLabel("Synopsis"),
+				formEntries["Synopsis"],
+			),
+		),
 		nil,
 		nil,
 		nil,
@@ -142,4 +222,22 @@ func mainWindowSetup() {
 	mainWindow.SetCloseIntercept(func() {
 		mainWindow.Hide()
 	})
+}
+
+func MakeEntryWithText(settext string) *widget.Entry {
+	b := widget.NewEntry()
+	b.SetText(settext)
+	return b
+}
+
+func MakeSelectWithOptions(options []string, value string) *widget.Select {
+	b := widget.NewSelect(options, func(cng string) {})
+	b.SetSelected(value)
+	return b
+}
+
+func MakeCheckGroupWithOptions(options []string, values []string) *widget.CheckGroup {
+	b := widget.NewCheckGroup(options, func(cng []string) {})
+	b.SetSelected(values)
+	return b
 }
