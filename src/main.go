@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 	icon "vonbloggui/icon"
@@ -139,13 +140,7 @@ func mainWindowSetup() {
 		"Status": MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
 	}
 	menu := widget.NewToolbar(
-		widget.NewToolbarAction(theme.FolderOpenIcon(), func() {
-			// Connect to BitBucket
-			// Pull down browsable directory list
-			// Provide navigations through list
-			// Provide buttons to download/ edit/ delete files
-			// When loading a file to edit, you have to store the sourceCommitId to save later
-		}),
+		widget.NewToolbarAction(theme.FolderOpenIcon(), ShowBitbucketNavigator),
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			// Validate/ parse fields as required
 			frontMatterDefaults(&thisPost.Frontmatter)
@@ -311,4 +306,58 @@ func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string
 	formSelect["Status"].Selected = thisPost.Frontmatter.Status
 	formSelect["Type"].Refresh()
 	formSelect["Status"].Refresh()
+}
+
+func ShowBitbucketNavigator() {
+	// Pull down browsable directory list
+	// Provide navigations through list
+	FileFinderWindow("/")
+}
+
+func FileFinderWindow(thispath string) {
+	var fileFinder dialog.Dialog
+	files, err := bitbucket.GetFiles(thispath)
+	if err == nil {
+		fileFinderContent := []fyne.CanvasObject{}
+		for path, hash := range files {
+			lPath := path
+			lHash := hash
+			fileFinderContent = append(fileFinderContent, widget.NewButton(lPath, func() {
+				// load file
+				fileFinder.Hide()
+				thepath := lPath
+				fmt.Printf("ThePath1: %s\n", thepath)
+				if lPath == ".." {
+					thepath = filepath.Dir(thispath)
+					if len(thepath) < 2 {
+						thepath = "/"
+					}
+				}
+				fmt.Printf("ThePath2: %s\n", thepath)
+				// If it's a file, load the file. Otherwise, new file finder dialog
+				FileFinderWindow(thepath)
+				fmt.Printf("Load %s|%s\n", thepath, lHash)
+			}))
+		}
+		fileFinder = dialog.NewCustom(
+			fmt.Sprintf("Path: %s", thispath),
+			"Nevermind",
+			container.NewGridWithColumns(3, fileFinderContent...),
+			mainWindow,
+		)
+		fileFinder.Show()
+	} else {
+		// When loading a file to edit, you have to store the sourceCommitId to save later
+		file, err := bitbucket.GetFileContents(thispath)
+		fmt.Printf("Error is %v\n", err)
+		fmt.Printf("Contents are %s\n", file)
+	}
+}
+
+func LoadDirectory(path string) {
+
+}
+
+func LoadFile(path string) {
+
 }

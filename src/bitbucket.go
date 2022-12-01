@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -31,28 +32,99 @@ type BitBucket struct {
 
 var bitbucket = BitBucket{}
 
-// @todo: Pagination
-// @todo: run https://api.bitbucket.org/2.0/repositories/vonexplaino/blog/src first to get the commit number, then use the commit number provided by the 302 redirect
-func (b *BitBucket) GetFiles(path string) ([]string, error) {
-	data := url.Values{
-		//		"status":     {message},
-	}
+type BitBucketAPILinks struct {
+	Self struct {
+		Href string `json:"href"`
+	} `json:"self"`
+	Meta struct {
+		Href string `json:"href"`
+	} `json:"meta"`
+	HTML struct {
+		Href string `json:"href"`
+	} `json:"html"`
+}
 
+func (b *BitBucket) GetFileContents(path string) (string, error) {
 	fullUrl, _ := url.JoinPath(baseurl, `/repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`, path)
-	fmt.Printf("URL: %s\n", fullUrl)
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
-		bytes.NewBuffer([]byte(data.Encode())),
+		bytes.NewBuffer([]byte("")),
 	)
 	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
 	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
 	resp, err := Client.Do(request)
 	if err != nil {
-		return []string{}, err
+		return "", err
 	}
-	fmt.Printf("Response: %v\n", resp)
-	return []string{}, nil
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("wrong status code %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
+
+func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
+	type thisReturnFromAPI struct {
+		Pagelen int32 `json:"pagelen"`
+		Values  []struct {
+			Path   string            `json:"path"`
+			Type   string            `json:"type"`
+			Links  BitBucketAPILinks `json:"links"`
+			Commit struct {
+				Type  string            `json:"type"`
+				Hash  string            `json:"hash"`
+				Links BitBucketAPILinks `json:"links"`
+			} `json:"commit"`
+		} `json:"values"`
+		Page int32  `json:"page"`
+		Size int32  `json:"size"`
+		Next string `json:"next"`
+	}
+	toReturn := map[string]string{}
+	if len(path) > 1 {
+		toReturn[".."] = "x"
+	}
+	fullUrl, _ := url.JoinPath(baseurl, `/repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`, path)
+	for len(fullUrl) > 0 {
+		fmt.Printf("URL: %s\n", fullUrl)
+		request, _ := http.NewRequest(
+			"GET",
+			fullUrl,
+			bytes.NewBuffer([]byte("")),
+		)
+		request.Header.Set("Content-type", "application/x-www-form-urlencoded")
+		request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+		resp, err := Client.Do(request)
+		if err != nil {
+			return toReturn, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return toReturn, fmt.Errorf("wrong status code %d", resp.StatusCode)
+		}
+		var j thisReturnFromAPI
+		err = json.NewDecoder(resp.Body).Decode(&j)
+		fmt.Printf("Parsing\n")
+		if err != nil {
+			return toReturn, fmt.Errorf("failed to parse %v", err)
+		}
+		for _, x := range j.Values {
+			toReturn[x.Path] = x.Commit.Hash
+		}
+		if len(j.Next) == 0 {
+			break
+		}
+		fullUrl = j.Next
+	}
+	fmt.Printf("Returning %v\n", toReturn)
+	return toReturn, nil
 }
 
 // @todo: Pagination
@@ -181,8 +253,12 @@ func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Content-type", "text/html")
 			fmt.Fprintf(w, "<html><head></head><body><H1>Authenticated<p>You are authenticated, you may close this window.</body></html>")
 			b.AccessToken = OToken.AccessToken
-			b.GetFiles("/")
-			fmt.Printf("\nAT: %s\n", b.AccessToken)
+			/*
+				b.GetFiles("/")
+				x, _ := b.GetFileContents("/posts/article/NearlyThere.md")
+				fmt.Printf("FileContents: %s\n", x)
+				fmt.Printf("\nAT: %s\n", b.AccessToken)
+			*/
 		}
 	}
 }
