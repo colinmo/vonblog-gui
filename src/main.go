@@ -68,9 +68,11 @@ func setup() {
 		),
 	)
 	Client = &http.Client{}
+	startLocalServers()
 }
 func main() {
 	setup()
+	bitbucket.Login()
 	thisApp = app.NewWithID("com.vonexplaino.vonblog")
 	thisApp.SetIcon(fyne.NewStaticResource("Systray", icon.Data))
 	preferencesWindow = thisApp.NewWindow("Preferences")
@@ -98,8 +100,6 @@ func preferencesWindowSetup() {
 }
 
 func mainWindowSetup() {
-	x, y := getProjects()
-	fmt.Printf("X: %v, Y: %v\n", x, y)
 	mainWindow.Resize(fyne.NewSize(800, 800))
 	mainWindow.SetMaster()
 	mainWindow.Hide()
