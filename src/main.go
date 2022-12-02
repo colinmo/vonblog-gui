@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -366,9 +367,10 @@ func FileFinderWindow(thispath string) {
 		fileFinder = dialog.NewCustom(
 			fmt.Sprintf("Path: %s", thispath),
 			"Nevermind",
-			container.NewGridWithColumns(3, fileFinderContent...),
+			container.NewVScroll(container.NewGridWrap(fyne.NewSize(150, 40), fileFinderContent...)),
 			mainWindow,
 		)
+		fileFinder.Resize(fyne.NewSize(500, 500))
 		fileFinder.Show()
 	} else {
 		// When loading a file to edit, you have to store the sourceCommitId to save later
@@ -382,13 +384,6 @@ func FileFinderWindow(thispath string) {
 	}
 }
 
-func LoadDirectory(path string) {
-
-}
-
-func LoadFile(path string) {
-
-}
 func LocalFileSelectorWindow() {
 	dialog.ShowFolderOpen(
 		func(directory fyne.ListableURI, err error) {
@@ -401,6 +396,8 @@ func LocalFileSelectorWindow() {
 					checkGroup.Append(file.Name())
 				}
 			}
+			uploadPrefix := time.Now().Format("media/2006/01/02/")
+			fileCleanRegexp := regexp.MustCompile(`[^a-z0-9._-]+`)
 			fileFinder := dialog.NewCustomConfirm(
 				"Upload",
 				"Upload",
@@ -408,18 +405,37 @@ func LocalFileSelectorWindow() {
 				container.NewVScroll(checkGroup),
 				func(ok bool) {
 					if ok {
-						fmt.Printf("Selected %v\n", checkGroup.Selected)
-					} else {
-						fmt.Printf("No go")
+						toUpload = []Attachment{}
+						for _, selectedFile := range checkGroup.Selected {
+							fullPath := filepath.Join(directory.Path(), selectedFile)
+							cleanName := fileCleanRegexp.ReplaceAllString(selectedFile, "-")
+							toUpload = append(
+								toUpload,
+								Attachment{
+									LocalFile:  fullPath,
+									RemotePath: uploadPrefix + strings.ToLower(cleanName),
+									IsImage:    isFileImage(fullPath),
+								},
+							)
+						}
 					}
 				},
 				mainWindow,
 			)
 			fileFinder.Resize(fyne.NewSize(300, 500))
 			fileFinder.Show()
-			// Show them with checkboxes
-			// Process all checkboxeds
 		},
 		mainWindow,
 	)
+}
+
+func isFileImage(filename string) bool {
+	clientFile, _ := os.Open(filename)
+	defer clientFile.Close()
+	buff := make([]byte, 512) // docs tell that it take only first 512 bytes into consideration
+	if _, err := clientFile.Read(buff); err != nil {
+		return false
+	}
+	mimetype := http.DetectContentType(buff)
+	return mimetype[:5] == "image"
 }

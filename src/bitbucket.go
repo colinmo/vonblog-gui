@@ -50,6 +50,8 @@ type Attachment struct {
 	IsImage    bool
 }
 
+var toUpload = []Attachment{}
+
 func (b *BitBucket) GetFileContents(path string) (string, error) {
 	fullUrl, _ := url.JoinPath(baseurl, `/repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`, path)
 	request, _ := http.NewRequest(
