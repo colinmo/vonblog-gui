@@ -156,11 +156,13 @@ func mainWindowSetup() {
 			// Validate/ parse fields as required
 			frontMatterDefaults(&thisPost.Frontmatter)
 			errors := frontMatterValidate(&thisPost.Frontmatter)
-			UpdateAllFields(formEntries, formSelect)
+			FieldsToPost(formEntries, formSelect)
+			thisPost.Contents = markdownInput.Text
 			if len(errors) > 0 {
 				fmt.Printf("Failed: %v\n", errors)
 			} else {
 				fmt.Printf("Continue upload")
+				bitbucket.UploadPost()
 				// Get the media together in a media submission
 				// Convert the fields into the Markdown post
 				// Submit to bitbucket
@@ -218,8 +220,41 @@ func mainWindowSetup() {
 			// Remember uploads
 		}),
 		widget.NewToolbarSeparator(),
-		widget.NewToolbarAction(theme.MediaPhotoIcon(), func() {}),
-		widget.NewToolbarAction(theme.NavigateNextIcon(), func() {}),
+		// GALLERY
+		widget.NewToolbarAction(theme.MediaPhotoIcon(), func() {
+			textToAdd := `<section class="gallery-2020-4" markdown="1">` + "\n"
+			for _, bob := range toUpload {
+				if bob.IsImage {
+					textToAdd = textToAdd + fmt.Sprintf(
+						`[![%s](%s "%s")](%s)`+"\n",
+						"alt",
+						getThumbnailFilename(bob.RemotePath),
+						"title",
+						bob.RemotePath)
+				}
+			}
+			textToAdd = textToAdd + `</section>` + "\n"
+
+			oldClipboard := mainWindow.Clipboard().Content()
+			mainWindow.Clipboard().SetContent(string(textToAdd))
+			s := &fyne.ShortcutPaste{Clipboard: mainWindow.Clipboard()}
+			markdownInput.TypedShortcut(s)
+			mainWindow.Clipboard().SetContent(oldClipboard)
+		}),
+		// BLOCKQUOTE
+		widget.NewToolbarAction(theme.NavigateNextIcon(), func() {
+			toChange := markdownInput.SelectedText()
+			if len(toChange) == 0 {
+				return
+			}
+			blockQuoteRegex := regexp.MustCompile("\n")
+			textToAdd := blockQuoteRegex.ReplaceAll([]byte(toChange), []byte("\n> "))
+			oldClipboard := mainWindow.Clipboard().Content()
+			mainWindow.Clipboard().SetContent("> " + string(textToAdd))
+			s := &fyne.ShortcutPaste{Clipboard: mainWindow.Clipboard()}
+			markdownInput.TypedShortcut(s)
+			mainWindow.Clipboard().SetContent(oldClipboard)
+		}),
 	)
 	content := container.NewBorder(
 		container.NewVBox(
@@ -327,6 +362,36 @@ func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string
 	formSelect["Status"].Refresh()
 }
 
+func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*widget.Select) {
+	thisPost.Frontmatter.Title = formEntries["Title"].Text
+	thisPost.Frontmatter.Tags = strings.Split(formEntries["Tags"].Text, ",")
+	thisPost.Frontmatter.Created = formEntries["Created"].Text
+	thisPost.Frontmatter.Updated = formEntries["Updated"].Text
+	thisPost.Frontmatter.Synopsis = formEntries["Synopsis"].Text
+	thisPost.Frontmatter.FeatureImage = formEntries["FeatureImage"].Text
+	thisPost.Frontmatter.InReplyTo = formEntries["InReplyTo"].Text
+	thisPost.Frontmatter.BookmarkOf = formEntries["BookmarkOf"].Text
+	thisPost.Frontmatter.FavoriteOf = formEntries["FavoriteOf"].Text
+	thisPost.Frontmatter.RepostOf = formEntries["RepostOf"].Text
+	thisPost.Frontmatter.LikeOf = formEntries["LikeOf"].Text
+	thisPost.Frontmatter.Slug = cleanName(thisPost.Frontmatter.Title) + ".html"
+	/*
+		formMedia := []struct {
+			URL  string
+			File image.NRGBA
+		}{}
+	*/
+	/*
+		AttachedMedia    []string
+		SyndicationLinks SyndicationLinksS
+		Event            Event
+		Resume           Resume
+		Item             ItemS
+	*/
+	thisPost.Frontmatter.Type = formSelect["Type"].Selected
+	thisPost.Frontmatter.Status = formSelect["Status"].Selected
+}
+
 func ShowBitbucketNavigator() {
 	// Pull down browsable directory list
 	// Provide navigations through list
@@ -387,6 +452,9 @@ func FileFinderWindow(thispath string) {
 func LocalFileSelectorWindow() {
 	dialog.ShowFolderOpen(
 		func(directory fyne.ListableURI, err error) {
+			if directory == nil {
+				return
+			}
 			fmt.Printf("Processing %v\n", directory)
 			// Get all files
 			files, _ := os.ReadDir(directory.Path())
@@ -397,7 +465,6 @@ func LocalFileSelectorWindow() {
 				}
 			}
 			uploadPrefix := time.Now().Format("media/2006/01/02/")
-			fileCleanRegexp := regexp.MustCompile(`[^a-z0-9._-]+`)
 			fileFinder := dialog.NewCustomConfirm(
 				"Upload",
 				"Upload",
@@ -408,13 +475,15 @@ func LocalFileSelectorWindow() {
 						toUpload = []Attachment{}
 						for _, selectedFile := range checkGroup.Selected {
 							fullPath := filepath.Join(directory.Path(), selectedFile)
-							cleanName := fileCleanRegexp.ReplaceAllString(selectedFile, "-")
+							cleanName := cleanName(selectedFile)
+							mimeType, isImage := isFileImage(fullPath)
 							toUpload = append(
 								toUpload,
 								Attachment{
 									LocalFile:  fullPath,
 									RemotePath: uploadPrefix + strings.ToLower(cleanName),
-									IsImage:    isFileImage(fullPath),
+									MimeType:   mimeType,
+									IsImage:    isImage,
 								},
 							)
 						}
@@ -429,13 +498,25 @@ func LocalFileSelectorWindow() {
 	)
 }
 
-func isFileImage(filename string) bool {
+func isFileImage(filename string) (string, bool) {
 	clientFile, _ := os.Open(filename)
 	defer clientFile.Close()
 	buff := make([]byte, 512) // docs tell that it take only first 512 bytes into consideration
 	if _, err := clientFile.Read(buff); err != nil {
-		return false
+		return "", false
 	}
 	mimetype := http.DetectContentType(buff)
-	return mimetype[:5] == "image"
+	return mimetype, mimetype[:5] == "image"
+}
+
+var fileCleanRegexp = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+
+func cleanName(filename string) string {
+	slug := fileCleanRegexp.ReplaceAllString(filename, "-")
+	slug = strings.Trim(slug, "-")
+	return strings.ToLower(slug)
+}
+
+func getThumbnailFilename(filename string) string {
+	return filename[0:strings.LastIndex(filename, ".")] + "-thumb.jpg"
 }

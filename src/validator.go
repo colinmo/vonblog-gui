@@ -15,18 +15,8 @@ func frontMatterDefaults(frontMatter *FrontMatter) {
 		created = time.Now()
 		frontMatter.Created = created.Format("2006-01-02T15:04:05-0700")
 	}
-	frontMatter.CreatedDate = created
 	if frontMatter.Updated == "" {
 		frontMatter.Updated = frontMatter.Created
-		frontMatter.UpdatedDate = frontMatter.CreatedDate
-	} else {
-		updated, err2 := parseUnknownDateFormat(frontMatter.Updated)
-		if err2 != nil {
-			frontMatter.Updated = frontMatter.Created
-		} else {
-			frontMatter.UpdatedDate = updated
-			frontMatter.Updated = updated.Format("2006-01-02T15:04:05-0700")
-		}
 	}
 
 	frontMatter.Slug = setEmptyStringDefault(frontMatter.Slug, textToSlug(frontMatter.Title))

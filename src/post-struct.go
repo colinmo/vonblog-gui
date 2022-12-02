@@ -93,31 +93,28 @@ type ItemS struct {
 }
 
 type FrontMatter struct {
-	ID               string            `yaml:"Id"`
+	ID               string            `yaml:"Id,omitempty"`
 	Title            string            `yaml:"Title"`
-	Tags             []string          `yaml:"Tags"`
+	Tags             []string          `yaml:"Tags,omitempty"`
 	Created          string            `yaml:"Created"`
-	Updated          string            `yaml:"Updated"`
+	Updated          string            `yaml:"Updated,omitempty"`
 	Type             string            `yaml:"Type"`
 	Status           string            `yaml:"Status"`
 	Synopsis         string            `yaml:"Synopsis"`
-	Author           string            `yaml:"Author"`
-	FeatureImage     string            `yaml:"FeatureImage"`
-	AttachedMedia    []string          `yaml:"AttachedMedia"`
-	SyndicationLinks SyndicationLinksS `yaml:"Syndication"`
+	Author           string            `yaml:"Author,omitempty"`
+	FeatureImage     string            `yaml:"FeatureImage,omitempty"`
+	AttachedMedia    []string          `yaml:"AttachedMedia,omitempty"`
+	SyndicationLinks SyndicationLinksS `yaml:"Syndication,omitempty"`
 	Slug             string            `yaml:"Slug"`
-	Event            Event             `yaml:"Event"`
-	Resume           Resume            `yaml:"Resume"`
-	Link             string            `yaml:"Link"`
-	InReplyTo        string            `yaml:"in-reply-to"`
-	BookmarkOf       string            `yaml:"bookmark-of"`
-	FavoriteOf       string            `yaml:"favorite-of"`
-	RepostOf         string            `yaml:"repost-of"`
-	LikeOf           string            `yaml:"like-of"`
-	Item             ItemS             `yaml:"Item"`
-	RelativeLink     string
-	CreatedDate      time.Time
-	UpdatedDate      time.Time
+	Event            Event             `yaml:"Event,omitempty"`
+	Resume           Resume            `yaml:"Resume,omitempty"`
+	Link             string            `yaml:"Link,omitempty"`
+	InReplyTo        string            `yaml:"in-reply-to,omitempty"`
+	BookmarkOf       string            `yaml:"bookmark-of,omitempty"`
+	FavoriteOf       string            `yaml:"favorite-of,omitempty"`
+	RepostOf         string            `yaml:"repost-of,omitempty"`
+	LikeOf           string            `yaml:"like-of,omitempty"`
+	Item             ItemS             `yaml:"Item,omitempty"`
 }
 
 type BlogPost struct {

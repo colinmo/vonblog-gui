@@ -4,14 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/nfnt/resize"
 	"github.com/pkg/browser"
+	"gopkg.in/yaml.v3"
 )
 
 type OAuthResponse struct {
@@ -47,6 +53,7 @@ type BitBucketAPILinks struct {
 type Attachment struct {
 	LocalFile  string
 	RemotePath string
+	MimeType   string
 	IsImage    bool
 }
 
@@ -230,7 +237,59 @@ func (b *BitBucket) GetRepositories() {
 }
 
 func (b *BitBucket) UploadPost() {
+	// file upload help: https://community.atlassian.com/t5/Bitbucket-questions/How-to-commit-multiple-files-from-memory-using-bitbucket-API/qaq-p/1845800
+	fullUrl, _ := url.JoinPath(baseurl, `repositories/`+workspacekey+`/`+reposslug+`/src`)
 
+	uploadPrefix := "posts/" + thisPost.Frontmatter.Type + "/" + time.Now().Format("2006/01/02/")
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	content, _ := yaml.Marshal(thisPost.Frontmatter)
+	writer.WriteField("message", "Post from exec")
+	writer.WriteField(uploadPrefix+cleanName(thisPost.Frontmatter.Title)+".md", "---\n"+string(content)+"---\n"+thisPost.Contents)
+
+	for _, z := range toUpload {
+		// @Todo: If this is an image, upload a thumbnail too.
+		w, _ := writer.CreateFormFile(z.RemotePath, z.RemotePath)
+		b, _ := os.Open(z.LocalFile)
+		defer b.Close()
+		io.Copy(w, b)
+
+		if z.IsImage {
+			img, err := readImage(z.LocalFile)
+			if err == nil {
+				img = resize.Thumbnail(480, 480, img, resize.Lanczos3)
+				thumbnailFilename := getThumbnailFilename(z.RemotePath)
+				w2, _ := writer.CreateFormFile(thumbnailFilename, thumbnailFilename)
+				jpOp := jpeg.Options{
+					Quality: 90,
+				}
+				jpeg.Encode(w2, img, &jpOp)
+			}
+		}
+	}
+	writer.Close()
+
+	request, _ := http.NewRequest(
+		"POST",
+		fullUrl,
+		bytes.NewReader(body.Bytes()),
+	)
+	request.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=%s", writer.Boundary()))
+	request.Header.Set("Content-Length", fmt.Sprintf("%d", body.Len()))
+	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+	request.Header.Set("Accept", "application/json")
+	resp, err := Client.Do(request)
+	if err != nil {
+		fmt.Printf("Failure %v\n", err)
+		log.Fatal("Bah")
+	}
+
+	defer resp.Body.Close()
+	var j interface{}
+	err = json.NewDecoder(resp.Body).Decode(&j)
+	fmt.Printf("Request %s\n\n", body.Bytes())
+	fmt.Printf("Response %v\n\n", err)
+	fmt.Printf("And then %v\n", j)
 }
 
 func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
@@ -294,4 +353,18 @@ func startLocalServers() {
 			log.Fatal(err)
 		}
 	}()
+}
+
+func readImage(name string) (image.Image, error) {
+	fd, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+
+	img, _, err := image.Decode(fd)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }
