@@ -13,7 +13,6 @@ import (
 	fyne "fyne.io/fyne/v2"
 	app "fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
@@ -390,14 +389,13 @@ func LoadDirectory(path string) {
 func LoadFile(path string) {
 
 }
-
 func LocalFileSelectorWindow() {
 	dialog.ShowFolderOpen(
 		func(directory fyne.ListableURI, err error) {
 			fmt.Printf("Processing %v\n", directory)
 			// Get all files
 			files, _ := os.ReadDir(directory.Path())
-			checkGroup := binding.NewStringList()
+			checkGroup := widget.NewCheckGroup([]string{}, func(bob []string) {})
 			for _, file := range files {
 				if !file.IsDir() {
 					checkGroup.Append(file.Name())
@@ -407,19 +405,17 @@ func LocalFileSelectorWindow() {
 				"Upload",
 				"Upload",
 				"Nevermind",
-				widget.NewListWithData(
-					checkGroup,
-					func() fyne.CanvasObject {
-						return widget.NewLabel("template")
-					},
-					func(i binding.DataItem, o fyne.CanvasObject) {
-						o.(*widget.Label).Bind(i.(binding.String))
-					},
-				),
-				func(ok bool) {},
+				container.NewVScroll(checkGroup),
+				func(ok bool) {
+					if ok {
+						fmt.Printf("Selected %v\n", checkGroup.Selected)
+					} else {
+						fmt.Printf("No go")
+					}
+				},
 				mainWindow,
 			)
-			fileFinder.Resize(fyne.NewSize(300, 300))
+			fileFinder.Resize(fyne.NewSize(300, 500))
 			fileFinder.Show()
 			// Show them with checkboxes
 			// Process all checkboxeds
