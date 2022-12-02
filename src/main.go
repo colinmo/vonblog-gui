@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 	icon "vonbloggui/icon"
@@ -42,6 +43,10 @@ var blogTimezone = "Australia/Brisbane"
 var md goldmark.Markdown
 var formEntries = map[string]*widget.Entry{}
 var formSelect = map[string]*widget.Select{}
+var recentUploads []struct {
+	Path  string
+	Thumb string
+}
 
 func setup() {
 	os.Setenv("TZ", blogTimezone)
@@ -141,7 +146,10 @@ func mainWindowSetup() {
 		"Status": MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
 	}
 	menu := widget.NewToolbar(
-		widget.NewToolbarAction(theme.FolderOpenIcon(), ShowBitbucketNavigator),
+		widget.NewToolbarAction(theme.FolderOpenIcon(), func() {
+			// @todo: Prompt to save first.
+			ShowBitbucketNavigator()
+		}),
 		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {}),
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			// Validate/ parse fields as required
@@ -151,6 +159,7 @@ func mainWindowSetup() {
 			if len(errors) > 0 {
 				fmt.Printf("Failed: %v\n", errors)
 			} else {
+				fmt.Printf("Continue upload")
 				// Get the media together in a media submission
 				// Convert the fields into the Markdown post
 				// Submit to bitbucket
@@ -197,7 +206,16 @@ func mainWindowSetup() {
 				mainWindow,
 			)
 		}),
-		widget.NewToolbarAction(theme.UploadIcon(), func() {}),
+		widget.NewToolbarAction(theme.UploadIcon(), func() {
+			// @todo when uploading images, remember the name and location
+			// so when clicking the gallery button, they can be suggested
+			LocalFileSelectorWindow()
+			// File selector prompt
+			// If an upload is an image, create the thumbnail
+			// Upload
+			// Handle response
+			// Remember uploads
+		}),
 		widget.NewToolbarSeparator(),
 		widget.NewToolbarAction(theme.MediaPhotoIcon(), func() {}),
 		widget.NewToolbarAction(theme.NavigateNextIcon(), func() {}),
@@ -319,24 +337,30 @@ func FileFinderWindow(thispath string) {
 	files, err := bitbucket.GetFiles(thispath)
 	if err == nil {
 		fileFinderContent := []fyne.CanvasObject{}
-		for path, hash := range files {
+		// Sort files
+		keys := make([]string, 0, len(files))
+		for k := range files {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, path := range keys { // second param is hash
 			lPath := path
-			lHash := hash
-			fileFinderContent = append(fileFinderContent, widget.NewButton(lPath, func() {
+			labelForPath := path
+			if len(path) > len(thispath) && len(thispath) > 2 {
+				labelForPath = path[len(thispath)+1:]
+			}
+			fileFinderContent = append(fileFinderContent, widget.NewButton(labelForPath, func() {
 				// load file
 				fileFinder.Hide()
 				thepath := lPath
-				fmt.Printf("ThePath1: %s\n", thepath)
 				if lPath == ".." {
 					thepath = filepath.Dir(thispath)
 					if len(thepath) < 2 {
 						thepath = "/"
 					}
 				}
-				fmt.Printf("ThePath2: %s\n", thepath)
 				// If it's a file, load the file. Otherwise, new file finder dialog
 				FileFinderWindow(thepath)
-				fmt.Printf("Load %s|%s\n", thepath, lHash)
 			}))
 		}
 		fileFinder = dialog.NewCustom(
@@ -348,13 +372,8 @@ func FileFinderWindow(thispath string) {
 		fileFinder.Show()
 	} else {
 		// When loading a file to edit, you have to store the sourceCommitId to save later
-		contents, err := bitbucket.GetFileContents(thispath)
-		x, y, z := parseString(contents)
-		fmt.Printf("Error is %v\n", err)
-		fmt.Printf("Contents are %s\n", contents)
-		fmt.Printf("X: %v\n", x)
-		fmt.Printf("Y: %v\n", y)
-		fmt.Printf("Z: %v\n", z)
+		contents, _ := bitbucket.GetFileContents(thispath)
+		x, y, _ := parseString(contents)
 		thisPost.Contents = x
 		markdownInput.Text = x
 		markdownInput.Refresh()
@@ -369,4 +388,31 @@ func LoadDirectory(path string) {
 
 func LoadFile(path string) {
 
+}
+func LocalFileSelectorWindow() {
+	dialog.ShowFolderOpen(
+		func(directory fyne.ListableURI, err error) {
+			fmt.Printf("Processing %v\n", directory)
+			// Get all files
+			files, _ := os.ReadDir(directory.Path())
+			checkGroup := widget.NewCheckGroup([]string{}, func(bob []string) {})
+			for _, file := range files {
+				if !file.IsDir() {
+					checkGroup.Append(file.Name())
+				}
+			}
+			fileFinder := dialog.NewCustomConfirm(
+				"Upload",
+				"Upload",
+				"Nevermind",
+				container.NewVScroll(checkGroup),
+				func(ok bool) {},
+				mainWindow,
+			)
+			fileFinder.Show()
+			// Show them with checkboxes
+			// Process all checkboxeds
+		},
+		mainWindow,
+	)
 }

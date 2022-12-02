@@ -44,6 +44,12 @@ type BitBucketAPILinks struct {
 	} `json:"html"`
 }
 
+type Attachment struct {
+	LocalFile  string
+	RemotePath string
+	IsImage    bool
+}
+
 func (b *BitBucket) GetFileContents(path string) (string, error) {
 	fullUrl, _ := url.JoinPath(baseurl, `/repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`, path)
 	request, _ := http.NewRequest(
@@ -111,7 +117,6 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 		}
 		var j thisReturnFromAPI
 		err = json.NewDecoder(resp.Body).Decode(&j)
-		fmt.Printf("Parsing\n")
 		if err != nil {
 			return toReturn, fmt.Errorf("failed to parse %v", err)
 		}
@@ -123,7 +128,7 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 		}
 		fullUrl = j.Next
 	}
-	fmt.Printf("Returning %v\n", toReturn)
+
 	return toReturn, nil
 }
 
@@ -220,6 +225,10 @@ func (b *BitBucket) GetRepositories() {
 	fmt.Printf("Response: %s\n", j)
 	fmt.Printf("Error: %s\n", err)
 	log.Fatal("Bah")
+}
+
+func (b *BitBucket) UploadPost() {
+
 }
 
 func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
