@@ -41,6 +41,8 @@ var thisPost BlogPost
 var dateFormatString = "2006-01-02 15:04:05"
 var blogTimezone = "Australia/Brisbane"
 var md goldmark.Markdown
+var formEntries = map[string]*widget.Entry{}
+var formSelect = map[string]*widget.Select{}
 
 func setup() {
 	os.Setenv("TZ", blogTimezone)
@@ -108,7 +110,7 @@ func mainWindowSetup() {
 	markdownInput.MultiLine = true
 	markdownInput.Wrapping = fyne.TextWrapWord
 	thisPost = BlogPost{}
-	formEntries := map[string]*widget.Entry{
+	formEntries = map[string]*widget.Entry{
 		"Title":        MakeEntryWithText(thisPost.Frontmatter.Title),
 		"Tags":         MakeEntryWithText(strings.Join(thisPost.Frontmatter.Tags, ",")),
 		"Created":      MakeEntryWithText(time.Now().Format(dateFormatString)),
@@ -135,12 +137,13 @@ func mainWindowSetup() {
 		Resume           Resume
 		Item             ItemS
 	*/
-	formSelect := map[string]*widget.Select{
+	formSelect = map[string]*widget.Select{
 		"Type":   MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
 		"Status": MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
 	}
 	menu := widget.NewToolbar(
 		widget.NewToolbarAction(theme.FolderOpenIcon(), ShowBitbucketNavigator),
+		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {}),
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			// Validate/ parse fields as required
 			frontMatterDefaults(&thisPost.Frontmatter)
@@ -199,8 +202,10 @@ func mainWindowSetup() {
 				mainWindow,
 			)
 		}),
-		widget.NewToolbarAction(theme.FileImageIcon(), func() {}),
+		widget.NewToolbarAction(theme.UploadIcon(), func() {}),
 		widget.NewToolbarSeparator(),
+		widget.NewToolbarAction(theme.MediaPhotoIcon(), func() {}),
+		widget.NewToolbarAction(theme.NavigateNextIcon(), func() {}),
 	)
 	content := container.NewBorder(
 		container.NewVBox(
@@ -348,9 +353,18 @@ func FileFinderWindow(thispath string) {
 		fileFinder.Show()
 	} else {
 		// When loading a file to edit, you have to store the sourceCommitId to save later
-		file, err := bitbucket.GetFileContents(thispath)
+		contents, err := bitbucket.GetFileContents(thispath)
+		x, y, z := parseString(contents)
 		fmt.Printf("Error is %v\n", err)
-		fmt.Printf("Contents are %s\n", file)
+		fmt.Printf("Contents are %s\n", contents)
+		fmt.Printf("X: %v\n", x)
+		fmt.Printf("Y: %v\n", y)
+		fmt.Printf("Z: %v\n", z)
+		thisPost.Contents = x
+		markdownInput.Text = x
+		markdownInput.Refresh()
+		thisPost.Frontmatter = y
+		UpdateAllFields(formEntries, formSelect)
 	}
 }
 
