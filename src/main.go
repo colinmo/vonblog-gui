@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"os"
@@ -160,14 +159,10 @@ func mainWindowSetup() {
 		}),
 		widget.NewToolbarAction(theme.DocumentPrintIcon(), func() {
 			parsedOut := markdownInput.Text
-			var buf bytes.Buffer
-			if err := md.Convert([]byte(parsedOut), &buf); err != nil {
-				panic(err)
-			}
 			tmpFile, _ := os.CreateTemp(os.TempDir(), "markdownpreview-*.html")
 			defer os.Remove(tmpFile.Name())
 			tmpFile.Write([]byte(markdownHTMLHeader))
-			tmpFile.Write(buf.Bytes())
+			tmpFile.Write([]byte(markdownToHtml(parsedOut)))
 			tmpFile.Write([]byte(markdownHTMLFooter))
 			tmpFile.Close()
 			browser.OpenFile(tmpFile.Name())
