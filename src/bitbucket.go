@@ -108,7 +108,6 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 	}
 	fullUrl, _ := url.JoinPath(baseurl, `/repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`, path)
 	for len(fullUrl) > 0 {
-		fmt.Printf("URL: %s\n", fullUrl)
 		request, _ := http.NewRequest(
 			"GET",
 			fullUrl,
@@ -144,7 +143,6 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 // @todo: Pagination
 func (b *BitBucket) GetProjects() ([]string, error) {
 	fullUrl, _ := url.JoinPath(baseurl, `repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`)
-	fmt.Printf("Url: %s\n", fullUrl)
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
@@ -156,13 +154,9 @@ func (b *BitBucket) GetProjects() ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	//fmt.Printf("Response: %v\n", resp)
 	defer resp.Body.Close()
 	var j interface{}
 	err = json.NewDecoder(resp.Body).Decode(&j)
-	fmt.Printf("Code: %d\n", resp.StatusCode)
-	fmt.Printf("Response: %s\n", j)
-	fmt.Printf("Error: %s\n", err)
 	return []string{}, err
 }
 
@@ -179,13 +173,9 @@ func (b *BitBucket) GetCurrentUser() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	//fmt.Printf("Response: %v\n", resp)
 	defer resp.Body.Close()
 	var j interface{}
 	err = json.NewDecoder(resp.Body).Decode(&j)
-	fmt.Printf("Code: %d\n", resp.StatusCode)
-	fmt.Printf("Response: %s\n", j)
-	fmt.Printf("Error: %s\n", err)
 	return "", err
 
 }
@@ -203,14 +193,9 @@ func (b *BitBucket) GetUserWorkspaces() {
 	if err != nil {
 		log.Fatal("Bah")
 	}
-	//fmt.Printf("Response: %v\n", resp)
 	defer resp.Body.Close()
 	var j interface{}
 	err = json.NewDecoder(resp.Body).Decode(&j)
-	fmt.Printf("Code: %d\n", resp.StatusCode)
-	fmt.Printf("Response: %s\n", j)
-	fmt.Printf("Error: %s\n", err)
-	log.Fatal("Bah")
 }
 
 func (b *BitBucket) GetRepositories() {
@@ -226,14 +211,9 @@ func (b *BitBucket) GetRepositories() {
 	if err != nil {
 		log.Fatal("Bah")
 	}
-	//fmt.Printf("Response: %v\n", resp)
 	defer resp.Body.Close()
 	var j interface{}
 	err = json.NewDecoder(resp.Body).Decode(&j)
-	fmt.Printf("Code: %d\n", resp.StatusCode)
-	fmt.Printf("Response: %s\n", j)
-	fmt.Printf("Error: %s\n", err)
-	log.Fatal("Bah")
 }
 
 func (b *BitBucket) UploadPost() {
@@ -244,26 +224,46 @@ func (b *BitBucket) UploadPost() {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	content, _ := yaml.Marshal(thisPost.Frontmatter)
-	writer.WriteField("message", "Post from exec")
+	writer.WriteField("message", "Post from exec - "+time.Now().Format("2006-01-02 15:04:05"))
 	writer.WriteField(uploadPrefix+cleanName(thisPost.Frontmatter.Title)+".md", "---\n"+string(content)+"---\n"+thisPost.Contents)
 
 	for _, z := range toUpload {
 		// @Todo: If this is an image, upload a thumbnail too.
-		w, _ := writer.CreateFormFile(z.RemotePath, z.RemotePath)
+		part, _ := writer.CreateFormFile(z.RemotePath, z.RemotePath)
 		b, _ := os.Open(z.LocalFile)
 		defer b.Close()
-		io.Copy(w, b)
+		io.Copy(part, b)
+		/*
+			h := make(textproto.MIMEHeader)
+			h.Set(
+				"Content-Disposition",
+				fmt.Sprintf(`form-data; name="%s"`, z.RemotePath),
+			)
+			h.Set("Content-Type", z.MimeType)
+			w, _ := writer.CreatePart(h)
+			b, _ := os.Open(z.LocalFile)
+			defer b.Close()
+			io.Copy(w, b)
+		*/
 
 		if z.IsImage {
 			img, err := readImage(z.LocalFile)
 			if err == nil {
 				img = resize.Thumbnail(480, 480, img, resize.Lanczos3)
-				thumbnailFilename := getThumbnailFilename(z.RemotePath)
-				w2, _ := writer.CreateFormFile(thumbnailFilename, thumbnailFilename)
+				thumbnailFile := getThumbnailFilename(z.RemotePath)
+				part2, _ := writer.CreateFormFile(thumbnailFile, thumbnailFile)
 				jpOp := jpeg.Options{
 					Quality: 90,
 				}
-				jpeg.Encode(w2, img, &jpOp)
+				jpeg.Encode(part2, img, &jpOp)
+				/*
+					h2 := make(textproto.MIMEHeader)
+					h2.Set(
+						"Content-Disposition",
+						fmt.Sprintf(`form-data; name="%s"`, z.RemotePath),
+					)
+					h2.Set("Content-Type", z.MimeType)
+				*/
 			}
 		}
 	}
@@ -274,7 +274,8 @@ func (b *BitBucket) UploadPost() {
 		fullUrl,
 		bytes.NewReader(body.Bytes()),
 	)
-	request.Header.Set("Content-type", fmt.Sprintf("multipart/form-data; boundary=%s", writer.Boundary()))
+	fmt.Printf("Sending %s\n", body.String())
+	request.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", writer.Boundary()))
 	request.Header.Set("Content-Length", fmt.Sprintf("%d", body.Len()))
 	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
 	request.Header.Set("Accept", "application/json")
@@ -287,9 +288,6 @@ func (b *BitBucket) UploadPost() {
 	defer resp.Body.Close()
 	var j interface{}
 	err = json.NewDecoder(resp.Body).Decode(&j)
-	fmt.Printf("Request %s\n\n", body.Bytes())
-	fmt.Printf("Response %v\n\n", err)
-	fmt.Printf("And then %v\n", j)
 }
 
 func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
@@ -323,12 +321,6 @@ func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Content-type", "text/html")
 			fmt.Fprintf(w, "<html><head></head><body><H1>Authenticated<p>You are authenticated, you may close this window.</body></html>")
 			b.AccessToken = OToken.AccessToken
-			/*
-				b.GetFiles("/")
-				x, _ := b.GetFileContents("/posts/article/NearlyThere.md")
-				fmt.Printf("FileContents: %s\n", x)
-				fmt.Printf("\nAT: %s\n", b.AccessToken)
-			*/
 		}
 	}
 }
