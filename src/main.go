@@ -123,6 +123,8 @@ func mainWindowSetup() {
 		"Synopsis":     MakeEntryWithText(thisPost.Frontmatter.Synopsis),
 		"FeatureImage": MakeEntryWithText(thisPost.Frontmatter.FeatureImage),
 
+		"Mastodon": MakeEntryWithText(thisPost.Frontmatter.SyndicationLinks.Mastodon),
+
 		"InReplyTo":  MakeEntryWithText(thisPost.Frontmatter.InReplyTo),
 		"BookmarkOf": MakeEntryWithText(thisPost.Frontmatter.BookmarkOf),
 		"FavoriteOf": MakeEntryWithText(thisPost.Frontmatter.FavoriteOf),
@@ -161,7 +163,6 @@ func mainWindowSetup() {
 			if len(errors) > 0 {
 				fmt.Printf("Failed: %v\n", errors)
 			} else {
-				fmt.Printf("Continue upload")
 				bitbucket.UploadPost()
 				// Get the media together in a media submission
 				// Convert the fields into the Markdown post
@@ -191,6 +192,8 @@ func mainWindowSetup() {
 				[]*widget.FormItem{
 					{Text: "Created", Widget: formEntries["Created"]},
 					{Text: "Updated", Widget: formEntries["Updated"]},
+					{Text: "", Widget: widget.NewLabel("Syndication [XPOST to make]")},
+					{Text: "Mastodon", Widget: formEntries["Mastodon"]},
 					/*{Text: "FeatureImage", Widget: formEntries["FeatureImage"]},*/
 					{Text: "", Widget: widget.NewLabel("Indieweb")},
 					{Text: "InReplyTo", Widget: formEntries["InReplyTo"]},
@@ -326,6 +329,7 @@ func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string
 	formEntries["Created"].Text = thisPost.Frontmatter.Created
 	formEntries["Updated"].Text = thisPost.Frontmatter.Updated
 	formEntries["Synopsis"].Text = thisPost.Frontmatter.Synopsis
+	formEntries["Mastodon"].Text = thisPost.Frontmatter.SyndicationLinks.Mastodon
 	formEntries["FeatureImage"].Text = thisPost.Frontmatter.FeatureImage
 	formEntries["InReplyTo"].Text = thisPost.Frontmatter.InReplyTo
 	formEntries["BookmarkOf"].Text = thisPost.Frontmatter.BookmarkOf
@@ -337,6 +341,7 @@ func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string
 	formEntries["Created"].Refresh()
 	formEntries["Updated"].Refresh()
 	formEntries["Synopsis"].Refresh()
+	formEntries["Mastodon"].Refresh()
 	formEntries["FeatureImage"].Refresh()
 	formEntries["InReplyTo"].Refresh()
 	formEntries["BookmarkOf"].Refresh()
@@ -368,6 +373,7 @@ func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*w
 	thisPost.Frontmatter.Created = formEntries["Created"].Text
 	thisPost.Frontmatter.Updated = formEntries["Updated"].Text
 	thisPost.Frontmatter.Synopsis = formEntries["Synopsis"].Text
+	thisPost.Frontmatter.SyndicationLinks.Mastodon = formEntries["Mastodon"].Text
 	thisPost.Frontmatter.FeatureImage = formEntries["FeatureImage"].Text
 	thisPost.Frontmatter.InReplyTo = formEntries["InReplyTo"].Text
 	thisPost.Frontmatter.BookmarkOf = formEntries["BookmarkOf"].Text
@@ -455,7 +461,6 @@ func LocalFileSelectorWindow() {
 			if directory == nil {
 				return
 			}
-			fmt.Printf("Processing %v\n", directory)
 			// Get all files
 			files, _ := os.ReadDir(directory.Path())
 			checkGroup := widget.NewCheckGroup([]string{}, func(bob []string) {})
@@ -464,7 +469,7 @@ func LocalFileSelectorWindow() {
 					checkGroup.Append(file.Name())
 				}
 			}
-			uploadPrefix := time.Now().Format("media/2006/01/02/")
+			uploadPrefix := time.Now().Format("/media/2006/01/02/")
 			fileFinder := dialog.NewCustomConfirm(
 				"Upload",
 				"Upload",
