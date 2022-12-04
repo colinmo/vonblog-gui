@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	fyne.io/fyne/v2 v2.2.4
-	github.com/alecthomas/chroma/v2 v2.4.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/yuin/goldmark v1.4.15
@@ -16,6 +15,7 @@ require (
 
 require (
 	fyne.io/systray v1.10.1-0.20220621085403-9a2652634e93 // indirect
+	github.com/alecthomas/chroma/v2 v2.4.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/fredbi/uri v0.0.0-20181227131451-3dcfdacbaaf3 // indirect
