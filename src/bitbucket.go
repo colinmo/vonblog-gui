@@ -220,12 +220,18 @@ func (b *BitBucket) UploadPost() {
 	// file upload help: https://community.atlassian.com/t5/Bitbucket-questions/How-to-commit-multiple-files-from-memory-using-bitbucket-API/qaq-p/1845800
 	fullUrl, _ := url.JoinPath(baseurl, `repositories/`+workspacekey+`/`+reposslug+`/src`)
 
-	uploadPrefix := "posts/" + thisPost.Frontmatter.Type + "/" + time.Now().Format("2006/01/02/")
+	if len(thisPost.Filename) == 0 {
+		if thisPost.Frontmatter.Type == "page" {
+			thisPost.Filename = "posts/" + thisPost.Frontmatter.Type + cleanName(thisPost.Frontmatter.Title) + ".md"
+		} else {
+			thisPost.Filename = "posts/" + thisPost.Frontmatter.Type + "/" + time.Now().Format("2006/01/02/") + cleanName(thisPost.Frontmatter.Title) + ".md"
+		}
+	}
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	content, _ := yaml.Marshal(thisPost.Frontmatter)
 	writer.WriteField("message", "Post from exec - "+time.Now().Format("2006-01-02 15:04:05"))
-	writer.WriteField(uploadPrefix+cleanName(thisPost.Frontmatter.Title)+".md", "---\n"+string(content)+"---\n"+thisPost.Contents)
+	writer.WriteField(thisPost.Filename, "---\n"+string(content)+"---\n"+thisPost.Contents)
 
 	for _, z := range toUpload {
 		// @Todo: If this is an image, upload a thumbnail too.
