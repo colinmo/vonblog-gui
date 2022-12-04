@@ -154,7 +154,7 @@ func mainWindowSetup() {
 			ShowBitbucketNavigator()
 		}),
 		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {
-			dialog.NewConfirm(
+			confirm := dialog.NewConfirm(
 				"Are you sure?",
 				"Delete the current entry and start over?",
 				func(ok bool) {
@@ -165,6 +165,7 @@ func mainWindowSetup() {
 				},
 				mainWindow,
 			)
+			confirm.Show()
 		}),
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			// Validate/ parse fields as required
