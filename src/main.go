@@ -153,7 +153,19 @@ func mainWindowSetup() {
 			// @todo: Prompt to save first.
 			ShowBitbucketNavigator()
 		}),
-		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {}),
+		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {
+			dialog.NewConfirm(
+				"Are you sure?",
+				"Delete the current entry and start over?",
+				func(ok bool) {
+					if ok {
+						thisPost = BlogPost{}
+						UpdateAllFields(formEntries, formSelect)
+					}
+				},
+				mainWindow,
+			)
+		}),
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			// Validate/ parse fields as required
 			frontMatterDefaults(&thisPost.Frontmatter)
@@ -164,18 +176,20 @@ func mainWindowSetup() {
 				fmt.Printf("Failed: %v\n", errors)
 			} else {
 				bitbucket.UploadPost()
-				// Get the media together in a media submission
-				// Convert the fields into the Markdown post
-				// Submit to bitbucket
 				// Handle response
 			}
 		}),
 		widget.NewToolbarAction(theme.DocumentPrintIcon(), func() {
-			parsedOut := markdownInput.Text
-			tmpFile, _ := os.CreateTemp(os.TempDir(), "markdownpreview-*.html")
-			defer os.Remove(tmpFile.Name())
+			targetFolder := filepath.Join(os.TempDir(), "vonblog")
+			_, err := os.Stat(targetFolder)
+			if !os.IsNotExist(err) {
+				os.RemoveAll(targetFolder)
+			}
+			os.Mkdir(targetFolder, 0770)
+			tmpFile, _ := os.CreateTemp(targetFolder, "markdownpreview-*.html")
+			// @todo: copy any uploaded images
 			tmpFile.Write([]byte(markdownHTMLHeader))
-			tmpFile.Write([]byte(markdownToHtml(parsedOut)))
+			tmpFile.Write([]byte(markdownToHtml(markdownInput.Text)))
 			tmpFile.Write([]byte(markdownHTMLFooter))
 			tmpFile.Close()
 			browser.OpenFile(tmpFile.Name())
@@ -213,14 +227,7 @@ func mainWindowSetup() {
 			)
 		}),
 		widget.NewToolbarAction(theme.UploadIcon(), func() {
-			// @todo when uploading images, remember the name and location
-			// so when clicking the gallery button, they can be suggested
 			LocalFileSelectorWindow()
-			// File selector prompt
-			// If an upload is an image, create the thumbnail
-			// Upload
-			// Handle response
-			// Remember uploads
 		}),
 		widget.NewToolbarSeparator(),
 		// GALLERY
@@ -447,10 +454,11 @@ func FileFinderWindow(thispath string) {
 		// When loading a file to edit, you have to store the sourceCommitId to save later
 		contents, _ := bitbucket.GetFileContents(thispath)
 		x, y, _ := parseString(contents)
-		thisPost.Contents = x
-		markdownInput.Text = x
+		thisPost.Contents = strings.Trim(x, "\n\r ")
+		markdownInput.Text = strings.Trim(x, "\r\n ")
 		markdownInput.Refresh()
 		thisPost.Frontmatter = y
+		thisPost.Filename = thispath
 		UpdateAllFields(formEntries, formSelect)
 	}
 }
