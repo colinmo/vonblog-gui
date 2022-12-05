@@ -217,7 +217,7 @@ func (b *BitBucket) GetUserWorkspaces() {
 	}
 	defer resp.Body.Close()
 	var j interface{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
+	json.NewDecoder(resp.Body).Decode(&j)
 }
 
 func (b *BitBucket) GetRepositories() {
@@ -235,7 +235,7 @@ func (b *BitBucket) GetRepositories() {
 	}
 	defer resp.Body.Close()
 	var j interface{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
+	json.NewDecoder(resp.Body).Decode(&j)
 }
 
 func (b *BitBucket) UploadPost() {
@@ -321,7 +321,7 @@ func (b *BitBucket) UploadPost() {
 
 	defer resp.Body.Close()
 	var j interface{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
+	json.NewDecoder(resp.Body).Decode(&j)
 }
 
 func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {

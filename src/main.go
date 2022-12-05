@@ -45,10 +45,6 @@ var blogTimezone = "Australia/Brisbane"
 var md goldmark.Markdown
 var formEntries = map[string]*widget.Entry{}
 var formSelect = map[string]*widget.Select{}
-var recentUploads []struct {
-	Path  string
-	Thumb string
-}
 
 func setup() {
 	os.Setenv("TZ", blogTimezone)
@@ -199,6 +195,7 @@ func mainWindowSetup() {
 						UpdateAllFields(formEntries, formSelect)
 						markdownInput.Text = ""
 						markdownInput.Refresh()
+						thisPost.Filename = ""
 					}
 				},
 				mainWindow,

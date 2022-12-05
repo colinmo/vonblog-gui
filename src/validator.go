@@ -13,8 +13,8 @@ func frontMatterDefaults(frontMatter *FrontMatter) {
 	created, err2 := parseUnknownDateFormat(frontMatter.Created)
 	if err2 != nil {
 		created = time.Now()
-		frontMatter.Created = created.Format("2006-01-02T15:04:05-0700")
 	}
+	frontMatter.Created = created.Format("2006-01-02T15:04:05-0700")
 	if frontMatter.Updated == "" {
 		frontMatter.Updated = frontMatter.Created
 	}
