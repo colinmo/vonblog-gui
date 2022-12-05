@@ -60,7 +60,15 @@ type Attachment struct {
 var toUpload = []Attachment{}
 
 func (b *BitBucket) GetFileContents(path string) (string, error) {
-	fullUrl, _ := url.JoinPath(baseurl, `/repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`, path)
+	fullUrl, _ := url.JoinPath(
+		thisApp.Preferences().String("baseurl"),
+		`/repositories/`,
+		thisApp.Preferences().String("workspacekey"),
+		`/`,
+		thisApp.Preferences().String("reposslug"),
+		`/src/HEAD/`,
+		path,
+	)
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
@@ -106,7 +114,15 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 	if len(path) > 1 {
 		toReturn[".."] = "x"
 	}
-	fullUrl, _ := url.JoinPath(baseurl, `/repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`, path)
+	fullUrl, _ := url.JoinPath(
+		thisApp.Preferences().String("baseurl"),
+		`/repositories/`,
+		thisApp.Preferences().String("workspacekey"),
+		`/`,
+		thisApp.Preferences().String("reposslug"),
+		`/src/HEAD/`,
+		path,
+	)
 	for len(fullUrl) > 0 {
 		request, _ := http.NewRequest(
 			"GET",
@@ -142,7 +158,13 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 
 // @todo: Pagination
 func (b *BitBucket) GetProjects() ([]string, error) {
-	fullUrl, _ := url.JoinPath(baseurl, `repositories/`, workspacekey, `/`, reposslug, `/src/HEAD/`)
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"),
+		`/repositories/`,
+		thisApp.Preferences().String("workspacekey"),
+		`/`,
+		thisApp.Preferences().String("reposslug"),
+		`/src/HEAD/`,
+	)
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
@@ -161,7 +183,7 @@ func (b *BitBucket) GetProjects() ([]string, error) {
 }
 
 func (b *BitBucket) GetCurrentUser() (string, error) {
-	fullUrl, _ := url.JoinPath(baseurl, `user`)
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `user`)
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
@@ -181,7 +203,7 @@ func (b *BitBucket) GetCurrentUser() (string, error) {
 }
 
 func (b *BitBucket) GetUserWorkspaces() {
-	fullUrl, _ := url.JoinPath(baseurl, `user/permissions/workspaces`)
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `user/permissions/workspaces`)
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
@@ -199,7 +221,7 @@ func (b *BitBucket) GetUserWorkspaces() {
 }
 
 func (b *BitBucket) GetRepositories() {
-	fullUrl, _ := url.JoinPath(baseurl, `repositories/`+workspacekey)
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `repositories/`+thisApp.Preferences().String("workspacekey"))
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
@@ -218,7 +240,13 @@ func (b *BitBucket) GetRepositories() {
 
 func (b *BitBucket) UploadPost() {
 	// file upload help: https://community.atlassian.com/t5/Bitbucket-questions/How-to-commit-multiple-files-from-memory-using-bitbucket-API/qaq-p/1845800
-	fullUrl, _ := url.JoinPath(baseurl, `repositories/`+workspacekey+`/`+reposslug+`/src`)
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"),
+		`/repositories/`,
+		thisApp.Preferences().String("workspacekey"),
+		`/`,
+		thisApp.Preferences().String("reposslug"),
+		`/src`,
+	)
 
 	if len(thisPost.Filename) == 0 {
 		if thisPost.Frontmatter.Type == "page" {
@@ -310,7 +338,7 @@ func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
 			strings.NewReader(payload.Encode()),
 		)
 		req.Header.Set("Content-type", "application/x-www-form-urlencoded")
-		req.SetBasicAuth(clientkey, clientsecret)
+		req.SetBasicAuth(thisApp.Preferences().String("clientkey"), thisApp.Preferences().String("clientsecret"))
 		resp, err := Client.Do(req)
 
 		if err != nil {
@@ -334,7 +362,7 @@ func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
 func (b *BitBucket) Login() {
 	browser.OpenURL(
 		fmt.Sprintf(`https://bitbucket.org/site/oauth2/authorize?client_id=%s&response_type=code`,
-			clientkey,
+			thisApp.Preferences().String("clientkey"),
 		),
 	)
 }

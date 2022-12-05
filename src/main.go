@@ -14,6 +14,7 @@ import (
 	fyne "fyne.io/fyne/v2"
 	app "fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
@@ -80,11 +81,19 @@ func setup() {
 }
 func main() {
 	setup()
-	bitbucket.Login()
 	thisApp = app.NewWithID("com.vonexplaino.vonblog")
 	thisApp.SetIcon(fyne.NewStaticResource("Systray", icon.Data))
 	preferencesWindow = thisApp.NewWindow("Preferences")
 	preferencesWindowSetup()
+	clientkey := binding.BindPreferenceString("clientkey", thisApp.Preferences())
+	clientsecret := binding.BindPreferenceString("clientsecret", thisApp.Preferences())
+	ck, _ := clientkey.Get()
+	cs, _ := clientsecret.Get()
+	if len(ck) == 0 || len(cs) == 0 {
+		preferencesWindow.Show()
+	} else {
+		bitbucket.Login()
+	}
 	mainWindow = thisApp.NewWindow("Post")
 	mainWindowSetup()
 	if desk, ok := thisApp.(desktop.App); ok {
@@ -105,6 +114,33 @@ func main() {
 
 func preferencesWindowSetup() {
 	// Bitbucket URL and Keys
+	preferencesWindow.Resize(fyne.NewSize(500, 500))
+	preferencesWindow.Hide()
+	baseurl := binding.BindPreferenceString("baseurl", thisApp.Preferences())
+	workspacekey := binding.BindPreferenceString("workspacekey", thisApp.Preferences())
+	reposslug := binding.BindPreferenceString("reposslug", thisApp.Preferences())
+	clientkey := binding.BindPreferenceString("clientkey", thisApp.Preferences())
+	clientsecret := binding.BindPreferenceString("clientsecret", thisApp.Preferences())
+
+	preferencesWindow.SetContent(
+		container.New(
+			layout.NewFormLayout(),
+			widget.NewLabel("Base URL"),
+			widget.NewEntryWithData(baseurl),
+			widget.NewLabel("Workspace Key"),
+			widget.NewEntryWithData(workspacekey),
+			widget.NewLabel("Repository Slug"),
+			widget.NewEntryWithData(reposslug),
+			widget.NewLabel("Client Key"),
+			widget.NewEntryWithData(clientkey),
+			widget.NewLabel("Client Secret"),
+			widget.NewEntryWithData(clientsecret),
+		),
+	)
+	preferencesWindow.SetCloseIntercept(func() {
+		preferencesWindow.Hide()
+		bitbucket.Login()
+	})
 }
 
 func mainWindowSetup() {
