@@ -197,6 +197,8 @@ func mainWindowSetup() {
 					if ok {
 						thisPost = BlogPost{}
 						UpdateAllFields(formEntries, formSelect)
+						markdownInput.Text = ""
+						markdownInput.Refresh()
 					}
 				},
 				mainWindow,
