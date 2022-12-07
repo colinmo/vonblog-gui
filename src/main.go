@@ -274,9 +274,9 @@ func mainWindowSetup() {
 					textToAdd = textToAdd + fmt.Sprintf(
 						`[![%s](%s "%s")](%s)`+"\n",
 						"alt",
-						getThumbnailFilename(bob.RemotePath),
+						"/blog"+getThumbnailFilename(bob.RemotePath),
 						"title",
-						bob.RemotePath)
+						"/blog"+bob.RemotePath)
 				}
 			}
 			textToAdd = textToAdd + `</section>` + "\n"
