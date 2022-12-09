@@ -1,0 +1,8 @@
+Website = "https://vonexplaino.com"
+
+[Details]
+  Icon = "Icon.png"
+  Name = "vonPost"
+  ID = "com.vonexplaino.vonpost"
+  Version = "1.0.0"
+  Build = 3

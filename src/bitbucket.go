@@ -258,7 +258,7 @@ func (b *BitBucket) UploadPost() {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	content, _ := yaml.Marshal(thisPost.Frontmatter)
-	writer.WriteField("message", "Post from exec - "+time.Now().Format("2006-01-02 15:04:05"))
+	writer.WriteField("message", "Post from exec - "+time.Now().Format(dateFormatString))
 	writer.WriteField(thisPost.Filename, "---\n"+string(content)+"---\n"+thisPost.Contents)
 
 	for _, z := range toUpload {
@@ -267,19 +267,6 @@ func (b *BitBucket) UploadPost() {
 		b, _ := os.Open(z.LocalFile)
 		defer b.Close()
 		io.Copy(part, b)
-		/*
-			h := make(textproto.MIMEHeader)
-			h.Set(
-				"Content-Disposition",
-				fmt.Sprintf(`form-data; name="%s"`, z.RemotePath),
-			)
-			h.Set("Content-Type", z.MimeType)
-			w, _ := writer.CreatePart(h)
-			b, _ := os.Open(z.LocalFile)
-			defer b.Close()
-			io.Copy(w, b)
-		*/
-
 		if z.IsImage {
 			img, err := readImage(z.LocalFile)
 			if err == nil {
@@ -290,14 +277,6 @@ func (b *BitBucket) UploadPost() {
 					Quality: 90,
 				}
 				jpeg.Encode(part2, img, &jpOp)
-				/*
-					h2 := make(textproto.MIMEHeader)
-					h2.Set(
-						"Content-Disposition",
-						fmt.Sprintf(`form-data; name="%s"`, z.RemotePath),
-					)
-					h2.Set("Content-Type", z.MimeType)
-				*/
 			}
 		}
 	}
@@ -349,13 +328,65 @@ func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Fatalf("Failed MS %s\n", err)
 			}
-			b.RefreshToken = OToken.RefreshToken
 			seconds, _ := time.ParseDuration(fmt.Sprintf("%ds", OToken.ExpiresIn-10))
+			b.RefreshToken = OToken.RefreshToken
 			b.Expiration = time.Now().Add(seconds)
+			b.AccessToken = OToken.AccessToken
+			thisApp.Preferences().SetString("refreshtoken", b.RefreshToken)
+			thisApp.Preferences().SetString("accesstoken", b.AccessToken)
+			thisApp.Preferences().SetString("expiration", b.Expiration.Format(dateFormatString))
 			w.Header().Add("Content-type", "text/html")
 			fmt.Fprintf(w, "<html><head></head><body><H1>Authenticated<p>You are authenticated, you may close this window.</body></html>")
-			b.AccessToken = OToken.AccessToken
 		}
+	}
+}
+
+func (b *BitBucket) RefreshIfRequired() {
+	expiration := thisApp.Preferences().String("expiration")
+	if len(expiration) == 0 {
+		b.Refresh()
+	} else {
+		expirationDate, err := time.Parse(expiration, dateFormatString)
+		if err != nil {
+			b.Refresh()
+		} else {
+			if time.Now().After(expirationDate) {
+				b.Refresh()
+			}
+		}
+	}
+}
+
+func (b *BitBucket) Refresh() {
+	var OToken OAuthResponse
+	payload := url.Values{
+		"refresh_token": {thisApp.Preferences().String("refreshtoken")},
+		"grant_type":    {"refresh_token"},
+	}
+	req, _ := http.NewRequest(
+		http.MethodPost,
+		`https://bitbucket.org/site/oauth2/access_token`,
+		strings.NewReader(payload.Encode()),
+	)
+	req.Header.Set("Content-type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(thisApp.Preferences().String("clientkey"), thisApp.Preferences().String("clientsecret"))
+	resp, err := Client.Do(req)
+
+	if err != nil {
+		log.Fatalf("Login failed %s\n", err)
+	} else {
+		defer resp.Body.Close()
+		err := json.NewDecoder(resp.Body).Decode(&OToken)
+		if err != nil {
+			log.Fatalf("Failed MS %s\n", err)
+		}
+		seconds, _ := time.ParseDuration(fmt.Sprintf("%ds", OToken.ExpiresIn-10))
+		b.RefreshToken = OToken.RefreshToken
+		b.Expiration = time.Now().Add(seconds)
+		b.AccessToken = OToken.AccessToken
+		thisApp.Preferences().SetString("refreshtoken", b.RefreshToken)
+		thisApp.Preferences().SetString("accesstoken", b.AccessToken)
+		thisApp.Preferences().SetString("expiration", b.Expiration.Format(dateFormatString))
 	}
 }
 

@@ -45,6 +45,7 @@ var blogTimezone = "Australia/Brisbane"
 var md goldmark.Markdown
 var formEntries = map[string]*widget.Entry{}
 var formSelect = map[string]*widget.Select{}
+var tokenExpiresAt time.Time
 
 func setup() {
 	os.Setenv("TZ", blogTimezone)
@@ -87,8 +88,11 @@ func main() {
 	cs, _ := clientsecret.Get()
 	if len(ck) == 0 || len(cs) == 0 {
 		preferencesWindow.Show()
-	} else {
+	} else if len(thisApp.Preferences().String("accesstoken")) == 0 ||
+		len(thisApp.Preferences().String("refreshtoken")) == 0 {
 		bitbucket.Login()
+	} else {
+		bitbucket.RefreshIfRequired()
 	}
 	mainWindow = thisApp.NewWindow("Post")
 	mainWindowSetup()
@@ -117,6 +121,12 @@ func preferencesWindowSetup() {
 	reposslug := binding.BindPreferenceString("reposslug", thisApp.Preferences())
 	clientkey := binding.BindPreferenceString("clientkey", thisApp.Preferences())
 	clientsecret := binding.BindPreferenceString("clientsecret", thisApp.Preferences())
+	accesstoken := binding.BindPreferenceString("accesstoken", thisApp.Preferences())
+	refreshtoken := binding.BindPreferenceString("refreshtoken", thisApp.Preferences())
+	expiration := binding.BindPreferenceString("expiration", thisApp.Preferences())
+
+	oldclientkey, _ := clientkey.Get()
+	oldclientsecret, _ := clientsecret.Get()
 
 	preferencesWindow.SetContent(
 		container.New(
@@ -131,11 +141,21 @@ func preferencesWindowSetup() {
 			widget.NewEntryWithData(clientkey),
 			widget.NewLabel("Client Secret"),
 			widget.NewEntryWithData(clientsecret),
+			widget.NewLabel("AccessToken"),
+			widget.NewEntryWithData(accesstoken),
+			widget.NewLabel("Refresh Token"),
+			widget.NewEntryWithData(refreshtoken),
+			widget.NewLabel("Expiration ("+dateFormatString+")"),
+			widget.NewEntryWithData(expiration),
 		),
 	)
 	preferencesWindow.SetCloseIntercept(func() {
 		preferencesWindow.Hide()
-		bitbucket.Login()
+		newclientkey, _ := clientkey.Get()
+		newclientsecret, _ := clientsecret.Get()
+		if oldclientkey != newclientkey || oldclientsecret != newclientsecret {
+			bitbucket.Login()
+		}
 	})
 }
 
