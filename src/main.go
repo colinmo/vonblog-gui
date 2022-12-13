@@ -183,19 +183,6 @@ func mainWindowSetup() {
 		"RepostOf":   MakeEntryWithText(thisPost.Frontmatter.RepostOf),
 		"LikeOf":     MakeEntryWithText(thisPost.Frontmatter.LikeOf),
 	}
-	/*
-		formMedia := []struct {
-			URL  string
-			File image.NRGBA
-		}{}
-	*/
-	/*
-		AttachedMedia    []string
-		SyndicationLinks SyndicationLinksS
-		Event            Event
-		Resume           Resume
-		Item             ItemS
-	*/
 	formSelect = map[string]*widget.Select{
 		"Type":   MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
 		"Status": MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
@@ -287,7 +274,7 @@ func mainWindowSetup() {
 		}),
 		widget.NewToolbarSeparator(),
 		// GALLERY
-		widget.NewToolbarAction(theme.MediaPhotoIcon(), func() {
+		widget.NewToolbarAction(resourceIconPicturePng, func() {
 			textToAdd := `<section class="gallery-2020-4" markdown="1">` + "\n"
 			for _, bob := range toUpload {
 				if bob.IsImage {
@@ -308,7 +295,7 @@ func mainWindowSetup() {
 			mainWindow.Clipboard().SetContent(oldClipboard)
 		}),
 		// BLOCKQUOTE
-		widget.NewToolbarAction(theme.NavigateNextIcon(), func() {
+		widget.NewToolbarAction(resourceIconQuotesPng, func() {
 			toChange := markdownInput.SelectedText()
 			if len(toChange) == 0 {
 				return
