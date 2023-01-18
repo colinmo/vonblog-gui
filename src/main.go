@@ -43,9 +43,11 @@ var thisPost BlogPost
 var dateFormatString = "2006-01-02 15:04:05"
 var blogTimezone = "Australia/Brisbane"
 var md goldmark.Markdown
+
 var formEntries = map[string]*widget.Entry{}
 var formSelect = map[string]*widget.Select{}
-var tokenExpiresAt time.Time
+var formCheckbox = map[string]*widget.Check{}
+var formSlider = map[string]*widget.Slider{}
 
 func setup() {
 	os.Setenv("TZ", blogTimezone)
@@ -182,10 +184,21 @@ func mainWindowSetup() {
 		"FavoriteOf": MakeEntryWithText(thisPost.Frontmatter.FavoriteOf),
 		"RepostOf":   MakeEntryWithText(thisPost.Frontmatter.RepostOf),
 		"LikeOf":     MakeEntryWithText(thisPost.Frontmatter.LikeOf),
+
+		"Item.Name":  MakeEntryWithText(thisPost.Frontmatter.Item.Name),
+		"Item.URL":   MakeEntryWithText(thisPost.Frontmatter.Item.URL),
+		"Item.Image": MakeEntryWithText(thisPost.Frontmatter.Item.Image),
+		"Item.Type":  MakeEntryWithText(thisPost.Frontmatter.Item.Type),
+	}
+	formSlider = map[string]*widget.Slider{
+		"Item.Rating": MakeSliderWithValue(thisPost.Frontmatter.Item.Rating),
 	}
 	formSelect = map[string]*widget.Select{
 		"Type":   MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
 		"Status": MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
+	}
+	formCheckbox = map[string]*widget.Check{
+		"Mastodon": widget.NewCheck("M", func(b bool) {}),
 	}
 	menu := widget.NewToolbar(
 		widget.NewToolbarAction(theme.FolderOpenIcon(), func() {
@@ -242,24 +255,86 @@ func mainWindowSetup() {
 		widget.NewToolbarAction(theme.InfoIcon(), func() {
 			// Popup window for title etc.
 			// @todo: Pull entries from a Bitbucket file if editing
-			dialog.ShowForm(
+			dialog.ShowCustomConfirm(
 				"Frontmatter",
 				"OK",
 				"Cancel",
-				[]*widget.FormItem{
-					{Text: "Created", Widget: formEntries["Created"]},
-					{Text: "Updated", Widget: formEntries["Updated"]},
-					{Text: "", Widget: widget.NewLabel("Syndication [XPOST to make]")},
-					{Text: "Mastodon", Widget: formEntries["Mastodon"]},
-					/*{Text: "FeatureImage", Widget: formEntries["FeatureImage"]},*/
-					{Text: "", Widget: widget.NewLabel("Indieweb")},
-					{Text: "InReplyTo", Widget: formEntries["InReplyTo"]},
-					{Text: "BookmarkOf", Widget: formEntries["BookmarkOf"]},
-					{Text: "FavoriteOf", Widget: formEntries["FavoriteOf"]},
-					{Text: "RepostOf", Widget: formEntries["RepostOf"]},
-					{Text: "LikeOf", Widget: formEntries["LikeOf"]},
-					{Text: "Extended", Widget: container.NewVBox(widget.NewButton("Event", func() {}), widget.NewButton("Resume", func() {}), widget.NewButton("Review", func() {}))},
-				},
+				container.NewVBox(
+					func() *widget.Accordion {
+						valueLabel := widget.NewLabel(fmt.Sprintf("%0.2f", formSlider["Item.Rating"].Value))
+						formSlider["Item.Rating"].OnChanged = func(f float64) {
+							valueLabel.SetText(fmt.Sprintf("%0.2f", f))
+						}
+						rating := widget.NewFormItem(
+							"Rating",
+							container.NewBorder(
+								nil,
+								nil,
+								valueLabel,
+								nil,
+								formSlider["Item.Rating"],
+							),
+						)
+						dude := widget.NewAccordion(
+							widget.NewAccordionItem(
+								"Basics",
+								widget.NewForm(
+									[]*widget.FormItem{
+										{Text: "Created", Widget: formEntries["Created"]},
+										{Text: "Updated", Widget: formEntries["Updated"]},
+										{Text: "", Widget: widget.NewLabel("Syndication [XPOST to make]")},
+										{Text: "Mastodon", Widget: formEntries["Mastodon"]},
+										/*{Text: "FeatureImage", Widget: formEntries["FeatureImage"]},*/
+									}...,
+								),
+							),
+							widget.NewAccordionItem(
+								"Indieweb",
+								widget.NewForm(
+									[]*widget.FormItem{
+										{Text: "InReplyTo", Widget: formEntries["InReplyTo"]},
+										{Text: "BookmarkOf", Widget: formEntries["BookmarkOf"]},
+										{Text: "FavoriteOf", Widget: formEntries["FavoriteOf"]},
+										{Text: "RepostOf", Widget: formEntries["RepostOf"]},
+										{Text: "LikeOf", Widget: formEntries["LikeOf"]},
+									}...,
+								),
+							),
+							widget.NewAccordionItem(
+								"Event",
+								container.NewVBox(
+									widget.NewForm(
+										[]*widget.FormItem{}...,
+									),
+								),
+							),
+							widget.NewAccordionItem(
+								"Resume",
+								container.NewVBox(
+									widget.NewForm(
+										[]*widget.FormItem{}...,
+									),
+								),
+							),
+							widget.NewAccordionItem(
+								"Review",
+								container.NewVBox(
+									widget.NewForm(
+										[]*widget.FormItem{
+											{Text: "URL", Widget: formEntries["Item.URL"]},
+											{Text: "Name", Widget: formEntries["Item.Name"]},
+											{Text: "Image", Widget: formEntries["Item.Image"]},
+											{Text: "Type", Widget: formEntries["Item.Type"]},
+											rating,
+										}...,
+									),
+								),
+							),
+						)
+						dude.Open(0)
+						return dude
+					}(),
+				),
 				func(x bool) {
 					if x {
 						thisPost.Frontmatter.Title = formEntries["Title"].Text
@@ -338,10 +413,16 @@ func mainWindowSetup() {
 					formEntries["Tags"],
 				),
 			),
-			container.New(
-				layout.NewFormLayout(),
-				widget.NewLabel("Synopsis"),
-				formEntries["Synopsis"],
+			container.NewBorder(
+				nil,
+				nil,
+				nil,
+				formCheckbox["Mastodon"],
+				container.New(
+					layout.NewFormLayout(),
+					widget.NewLabel("Synopsis"),
+					formEntries["Synopsis"],
+				),
 			),
 		),
 		nil,
@@ -373,31 +454,34 @@ func MakeCheckGroupWithOptions(options []string, values []string) *widget.CheckG
 	return b
 }
 
+func MakeSliderWithValue(value float32) *widget.Slider {
+	b := widget.NewSlider(0, 5)
+	b.Step = 0.5
+	b.SetValue(float64(value))
+	return b
+}
+
 func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string]*widget.Select) {
-	formEntries["Title"].Text = thisPost.Frontmatter.Title
-	formEntries["Tags"].Text = strings.Join(thisPost.Frontmatter.Tags, ",")
-	formEntries["Created"].Text = thisPost.Frontmatter.Created
-	formEntries["Updated"].Text = thisPost.Frontmatter.Updated
-	formEntries["Synopsis"].Text = thisPost.Frontmatter.Synopsis
-	formEntries["Mastodon"].Text = thisPost.Frontmatter.SyndicationLinks.Mastodon
-	formEntries["FeatureImage"].Text = thisPost.Frontmatter.FeatureImage
-	formEntries["InReplyTo"].Text = thisPost.Frontmatter.InReplyTo
-	formEntries["BookmarkOf"].Text = thisPost.Frontmatter.BookmarkOf
-	formEntries["FavoriteOf"].Text = thisPost.Frontmatter.FavoriteOf
-	formEntries["RepostOf"].Text = thisPost.Frontmatter.RepostOf
-	formEntries["LikeOf"].Text = thisPost.Frontmatter.LikeOf
-	formEntries["Title"].Refresh()
-	formEntries["Tags"].Refresh()
-	formEntries["Created"].Refresh()
-	formEntries["Updated"].Refresh()
-	formEntries["Synopsis"].Refresh()
-	formEntries["Mastodon"].Refresh()
-	formEntries["FeatureImage"].Refresh()
-	formEntries["InReplyTo"].Refresh()
-	formEntries["BookmarkOf"].Refresh()
-	formEntries["FavoriteOf"].Refresh()
-	formEntries["RepostOf"].Refresh()
-	formEntries["LikeOf"].Refresh()
+	formEntries["Title"].SetText(thisPost.Frontmatter.Title)
+	formEntries["Tags"].SetText(strings.Join(thisPost.Frontmatter.Tags, ","))
+	formEntries["Created"].SetText(thisPost.Frontmatter.Created)
+	formEntries["Updated"].SetText(thisPost.Frontmatter.Updated)
+	formEntries["Synopsis"].SetText(thisPost.Frontmatter.Synopsis)
+	formEntries["Mastodon"].SetText(thisPost.Frontmatter.SyndicationLinks.Mastodon)
+	formEntries["FeatureImage"].SetText(thisPost.Frontmatter.FeatureImage)
+	formEntries["InReplyTo"].SetText(thisPost.Frontmatter.InReplyTo)
+	formEntries["BookmarkOf"].SetText(thisPost.Frontmatter.BookmarkOf)
+	formEntries["FavoriteOf"].SetText(thisPost.Frontmatter.FavoriteOf)
+	formEntries["RepostOf"].SetText(thisPost.Frontmatter.RepostOf)
+	formEntries["LikeOf"].SetText(thisPost.Frontmatter.LikeOf)
+	//
+	if len(thisPost.Frontmatter.Item.Name) > 0 {
+		formEntries["Item.URL"].SetText(thisPost.Frontmatter.Item.URL)
+		formEntries["Item.Image"].SetText(thisPost.Frontmatter.Item.Image)
+		formEntries["Item.Name"].SetText(thisPost.Frontmatter.Item.Name)
+		formSlider["Item.Rating"].SetValue(float64(thisPost.Frontmatter.Item.Rating))
+		formEntries["Item.Type"].SetText(thisPost.Frontmatter.Item.Type)
+	}
 	/*
 		formMedia := []struct {
 			URL  string
@@ -411,10 +495,9 @@ func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string
 		Resume           Resume
 		Item             ItemS
 	*/
-	formSelect["Type"].Selected = thisPost.Frontmatter.Type
-	formSelect["Status"].Selected = thisPost.Frontmatter.Status
-	formSelect["Type"].Refresh()
-	formSelect["Status"].Refresh()
+	formSelect["Type"].SetSelected(thisPost.Frontmatter.Type)
+	formSelect["Status"].SetSelected(thisPost.Frontmatter.Status)
+	formCheckbox["Mastodon"].SetChecked(len(thisPost.Frontmatter.SyndicationLinks.Mastodon) > 0)
 }
 
 func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*widget.Select) {
@@ -423,6 +506,9 @@ func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*w
 	thisPost.Frontmatter.Created = formEntries["Created"].Text
 	thisPost.Frontmatter.Updated = formEntries["Updated"].Text
 	thisPost.Frontmatter.Synopsis = formEntries["Synopsis"].Text
+	if formCheckbox["Mastodon"].Checked && formEntries["Mastodon"].Text == "" {
+		formEntries["Mastodon"].Text = "XPOST"
+	}
 	thisPost.Frontmatter.SyndicationLinks.Mastodon = formEntries["Mastodon"].Text
 	thisPost.Frontmatter.FeatureImage = formEntries["FeatureImage"].Text
 	thisPost.Frontmatter.InReplyTo = formEntries["InReplyTo"].Text
@@ -431,6 +517,16 @@ func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*w
 	thisPost.Frontmatter.RepostOf = formEntries["RepostOf"].Text
 	thisPost.Frontmatter.LikeOf = formEntries["LikeOf"].Text
 	thisPost.Frontmatter.Slug = cleanName(thisPost.Frontmatter.Title) + ".html"
+
+	if len(formEntries["Item.Name"].Text) > 0 {
+		thisPost.Frontmatter.Item.Name = formEntries["Item.Name"].Text
+		thisPost.Frontmatter.Item.Image = formEntries["Item.Image"].Text
+		thisPost.Frontmatter.Item.URL = formEntries["Item.URL"].Text
+		thisPost.Frontmatter.Item.Type = formEntries["Item.Type"].Text
+		thisPost.Frontmatter.Item.Rating = float32(formSlider["Item.Rating"].Value)
+	} else {
+		thisPost.Frontmatter.Item = ItemS{}
+	}
 	/*
 		formMedia := []struct {
 			URL  string
