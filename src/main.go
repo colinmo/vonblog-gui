@@ -261,9 +261,9 @@ func mainWindowSetup() {
 				"Cancel",
 				container.NewVBox(
 					func() *widget.Accordion {
-						valueLabel := widget.NewLabel(fmt.Sprintf("%0.2f", formSlider["Item.Rating"].Value))
+						valueLabel := widget.NewIcon(sliderToResource(formSlider["Item.Rating"].Value))
 						formSlider["Item.Rating"].OnChanged = func(f float64) {
-							valueLabel.SetText(fmt.Sprintf("%0.2f", f))
+							valueLabel.SetResource(sliderToResource(formSlider["Item.Rating"].Value))
 						}
 						rating := widget.NewFormItem(
 							"Rating",
@@ -671,4 +671,33 @@ func cleanName(filename string) string {
 
 func getThumbnailFilename(filename string) string {
 	return filename[0:strings.LastIndex(filename, ".")] + "-thumb.jpg"
+}
+
+func sliderToResource(value float64) *fyne.StaticResource {
+	switch value {
+	case 5.0:
+		return resource5starPng
+	case 4.5:
+		return resource45starPng
+	case 4:
+		return resource4starPng
+	case 3.5:
+		return resource35starPng
+	case 3:
+		return resource3starPng
+	case 2.5:
+		return resource25starPng
+	case 2:
+		return resource2starPng
+	case 1.5:
+		return resource15starPng
+	case 1:
+		return resource1starPng
+	case 0.5:
+		return resource05starPng
+	case 0:
+		return resource0starPng
+	default:
+		return resource0starPng
+	}
 }
