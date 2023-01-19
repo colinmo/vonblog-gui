@@ -287,7 +287,6 @@ func (b *BitBucket) UploadPost() {
 		fullUrl,
 		bytes.NewReader(body.Bytes()),
 	)
-	fmt.Printf("Sending %s\n", body.String())
 	request.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", writer.Boundary()))
 	request.Header.Set("Content-Length", fmt.Sprintf("%d", body.Len()))
 	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
