@@ -15,9 +15,8 @@ func frontMatterDefaults(frontMatter *FrontMatter) {
 		created = time.Now()
 	}
 	frontMatter.Created = created.Format("2006-01-02T15:04:05-0700")
-	if frontMatter.Updated == "" {
-		frontMatter.Updated = frontMatter.Created
-	}
+
+	frontMatter.Updated = time.Now().Format("2006-01-02T15:04:05-0700")
 
 	frontMatter.Slug = setEmptyStringDefault(frontMatter.Slug, textToSlug(frontMatter.Title))
 	if len(frontMatter.Slug) < 5 || frontMatter.Slug[len(frontMatter.Slug)-5:] != ".html" {

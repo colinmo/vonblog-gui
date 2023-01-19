@@ -1,3 +1,17 @@
+//go:generate fyne bundle -o bundled.go icon/quotes.png
+//go:generate fyne bundle -o bundled.go -append icon/picture.png
+//go:generate fyne bundle -o bundled.go -append icon/0star.png
+//go:generate fyne bundle -o bundled.go -append icon/0.5star.png
+//go:generate fyne bundle -o bundled.go -append icon/1star.png
+//go:generate fyne bundle -o bundled.go -append icon/1.5star.png
+//go:generate fyne bundle -o bundled.go -append icon/2star.png
+//go:generate fyne bundle -o bundled.go -append icon/2.5star.png
+//go:generate fyne bundle -o bundled.go -append icon/3star.png
+//go:generate fyne bundle -o bundled.go -append icon/3.5star.png
+//go:generate fyne bundle -o bundled.go -append icon/4star.png
+//go:generate fyne bundle -o bundled.go -append icon/4.5star.png
+//go:generate fyne bundle -o bundled.go -append icon/5star.png
+
 package main
 
 import (
@@ -188,7 +202,6 @@ func mainWindowSetup() {
 		"Item.Name":  MakeEntryWithText(thisPost.Frontmatter.Item.Name),
 		"Item.URL":   MakeEntryWithText(thisPost.Frontmatter.Item.URL),
 		"Item.Image": MakeEntryWithText(thisPost.Frontmatter.Item.Image),
-		"Item.Type":  MakeEntryWithText(thisPost.Frontmatter.Item.Type),
 	}
 	formSlider = map[string]*widget.Slider{
 		"Item.Rating": MakeSliderWithValue(thisPost.Frontmatter.Item.Rating),
@@ -211,7 +224,9 @@ func mainWindowSetup() {
 				"Delete the current entry and start over?",
 				func(ok bool) {
 					if ok {
-						thisPost = BlogPost{}
+						thisPost = BlogPost{
+							Frontmatter: FrontMatter{Created: time.Now().Format(dateFormatString)},
+						}
 						UpdateAllFields(formEntries, formSelect)
 						markdownInput.Text = ""
 						markdownInput.Refresh()
@@ -323,9 +338,8 @@ func mainWindowSetup() {
 										[]*widget.FormItem{
 											{Text: "URL", Widget: formEntries["Item.URL"]},
 											{Text: "Name", Widget: formEntries["Item.Name"]},
-											{Text: "Image", Widget: formEntries["Item.Image"]},
-											{Text: "Type", Widget: formEntries["Item.Type"]},
 											rating,
+											{Text: "Image", Widget: formEntries["Item.Image"]},
 										}...,
 									),
 								),
@@ -349,7 +363,7 @@ func mainWindowSetup() {
 		}),
 		widget.NewToolbarSeparator(),
 		// GALLERY
-		widget.NewToolbarAction(resourceIconPicturePng, func() {
+		widget.NewToolbarAction(resourcePicturePng, func() {
 			textToAdd := `<section class="gallery-2020-4" markdown="1">` + "\n"
 			for _, bob := range toUpload {
 				if bob.IsImage {
@@ -370,7 +384,7 @@ func mainWindowSetup() {
 			mainWindow.Clipboard().SetContent(oldClipboard)
 		}),
 		// BLOCKQUOTE
-		widget.NewToolbarAction(resourceIconQuotesPng, func() {
+		widget.NewToolbarAction(resourceQuotesPng, func() {
 			toChange := markdownInput.SelectedText()
 			if len(toChange) == 0 {
 				return
@@ -480,7 +494,6 @@ func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string
 		formEntries["Item.Image"].SetText(thisPost.Frontmatter.Item.Image)
 		formEntries["Item.Name"].SetText(thisPost.Frontmatter.Item.Name)
 		formSlider["Item.Rating"].SetValue(float64(thisPost.Frontmatter.Item.Rating))
-		formEntries["Item.Type"].SetText(thisPost.Frontmatter.Item.Type)
 	}
 	/*
 		formMedia := []struct {
@@ -522,7 +535,7 @@ func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*w
 		thisPost.Frontmatter.Item.Name = formEntries["Item.Name"].Text
 		thisPost.Frontmatter.Item.Image = formEntries["Item.Image"].Text
 		thisPost.Frontmatter.Item.URL = formEntries["Item.URL"].Text
-		thisPost.Frontmatter.Item.Type = formEntries["Item.Type"].Text
+		thisPost.Frontmatter.Item.Type = "item"
 		thisPost.Frontmatter.Item.Rating = float32(formSlider["Item.Rating"].Value)
 	} else {
 		thisPost.Frontmatter.Item = ItemS{}
