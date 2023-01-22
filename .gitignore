@@ -2,3 +2,4 @@ testvars.go
 bin/vonpost
 bin/vonpost.exe
 .DS_Store
+src/vonPost.app
