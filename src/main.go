@@ -358,7 +358,7 @@ func mainWindowSetup() {
 				mainWindow,
 			)
 		}),
-		widget.NewToolbarAction(theme.UploadIcon(), func() {
+		widget.NewToolbarAction(theme.MediaPhotoIcon(), func() {
 			LocalFileSelectorWindow()
 		}),
 		widget.NewToolbarSeparator(),
