@@ -54,7 +54,7 @@ var preferencesWindow fyne.Window
 var AppStatus AppStatusStruct
 var markdownInput *widget.Entry
 var thisPost BlogPost
-var dateFormatString = "2006-01-02 15:04:05"
+var dateFormatString = "2006-01-02T15:04:05-0700"
 var blogTimezone = "Australia/Brisbane"
 var md goldmark.Markdown
 
