@@ -27,6 +27,7 @@ import (
 
 	fyne "fyne.io/fyne/v2"
 	app "fyne.io/fyne/v2/app"
+	canvas "fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
@@ -48,9 +49,16 @@ type AppStatusStruct struct {
 	TaskCount int
 }
 
+type GalleryStruct struct {
+	Alt     binding.String
+	Caption binding.String
+	Image   binding.String
+}
+
 var thisApp fyne.App
 var mainWindow fyne.Window
 var preferencesWindow fyne.Window
+var galleryWindow fyne.Window
 var AppStatus AppStatusStruct
 var markdownInput *widget.Entry
 var thisPost BlogPost
@@ -91,9 +99,6 @@ func setup() {
 	)
 	Client = &http.Client{}
 	startLocalServers()
-}
-func main() {
-	setup()
 	thisApp = app.NewWithID("com.vonexplaino.vonblog")
 	thisApp.SetIcon(fyne.NewStaticResource("Systray", icon.Data))
 	preferencesWindow = thisApp.NewWindow("Preferences")
@@ -112,6 +117,14 @@ func main() {
 	}
 	mainWindow = thisApp.NewWindow("Post")
 	mainWindowSetup()
+
+	galleryWindow = thisApp.NewWindow("Gallery")
+	galleryWindow.Resize(fyne.NewSize(800, 800))
+	galleryWindow.Hide()
+}
+
+func main() {
+	setup()
 	if desk, ok := thisApp.(desktop.App); ok {
 		m := fyne.NewMenu("VonBlog",
 			fyne.NewMenuItem("Post", func() {
@@ -364,24 +377,73 @@ func mainWindowSetup() {
 		widget.NewToolbarSeparator(),
 		// GALLERY
 		widget.NewToolbarAction(resourcePicturePng, func() {
-			textToAdd := `<section class="gallery-2020-4" markdown="1">` + "\n"
+			inserts := []fyne.CanvasObject{}
+			inputs := []GalleryStruct{}
 			for _, bob := range toUpload {
 				if bob.IsImage {
-					textToAdd = textToAdd + fmt.Sprintf(
-						`[![%s](%s "%s")](%s)`+"\n",
-						"alt",
-						"/blog"+getThumbnailFilename(bob.RemotePath),
-						"title",
-						"/blog"+bob.RemotePath)
+					fmt.Printf("Add: %s\n", bob.LocalFile)
+					input := GalleryStruct{
+						binding.NewString(),
+						binding.NewString(),
+						binding.NewString(),
+					}
+					input.Alt.Set("")
+					input.Caption.Set("")
+					input.Image.Set(bob.RemotePath)
+					img := canvas.NewImageFromFile(bob.LocalFile)
+					img.SetMinSize(fyne.NewSize(150, 150))
+					img.FillMode = canvas.ImageFillContain
+					inserts = append(inserts,
+						container.New(
+							layout.NewFormLayout(),
+							img,
+							container.New(
+								layout.NewFormLayout(),
+								widget.NewLabel("Alt Text"),
+								widget.NewEntryWithData(input.Alt),
+								widget.NewLabel("Caption"),
+								widget.NewEntryWithData(input.Caption),
+							)),
+					)
+					inputs = append(inputs, input)
 				}
 			}
-			textToAdd = textToAdd + `</section>` + "\n"
+			inserts = append(inserts, container.New(
+				layout.NewGridLayout(2),
+				widget.NewButton("Insert", func() {
+					textToAdd := `<section class="gallery-2020-4" markdown="1">` + "\n"
+					for _, bob := range inputs {
+						fmt.Printf("Add [%v]", bob)
+						x, _ := bob.Image.Get()
+						y, _ := bob.Alt.Get()
+						z, _ := bob.Caption.Get()
+						textToAdd = textToAdd + fmt.Sprintf(
+							`[![%s](%s "%s")](%s)`+"\n",
+							y,
+							"/blog"+getThumbnailFilename(x),
+							z,
+							"/blog"+x)
+					}
+					textToAdd = textToAdd + `</section>` + "\n"
 
-			oldClipboard := mainWindow.Clipboard().Content()
-			mainWindow.Clipboard().SetContent(string(textToAdd))
-			s := &fyne.ShortcutPaste{Clipboard: mainWindow.Clipboard()}
-			markdownInput.TypedShortcut(s)
-			mainWindow.Clipboard().SetContent(oldClipboard)
+					oldClipboard := mainWindow.Clipboard().Content()
+					mainWindow.Clipboard().SetContent(string(textToAdd))
+					s := &fyne.ShortcutPaste{Clipboard: mainWindow.Clipboard()}
+					markdownInput.TypedShortcut(s)
+					mainWindow.Clipboard().SetContent(oldClipboard)
+					galleryWindow.Hide()
+				}),
+				widget.NewButton("Cancel", func() {
+					galleryWindow.Hide()
+				}),
+			))
+			galleryWindow.SetContent(
+				container.New(
+					layout.NewVBoxLayout(),
+					inserts...,
+				),
+			)
+			galleryWindow.Show()
 		}),
 		// BLOCKQUOTE
 		widget.NewToolbarAction(resourceQuotesPng, func() {
