@@ -33,6 +33,8 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
+	storage "fyne.io/fyne/v2/storage"
+	repository "fyne.io/fyne/v2/storage/repository"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	html2 "github.com/alecthomas/chroma/v2/formatters/html"
@@ -153,6 +155,7 @@ func preferencesWindowSetup() {
 	accesstoken := binding.BindPreferenceString("accesstoken", thisApp.Preferences())
 	refreshtoken := binding.BindPreferenceString("refreshtoken", thisApp.Preferences())
 	expiration := binding.BindPreferenceString("expiration", thisApp.Preferences())
+	startingfolder := binding.BindPreferenceString("startingfolder", thisApp.Preferences())
 
 	oldclientkey, _ := clientkey.Get()
 	oldclientsecret, _ := clientsecret.Get()
@@ -176,6 +179,8 @@ func preferencesWindowSetup() {
 			widget.NewEntryWithData(refreshtoken),
 			widget.NewLabel("Expiration ("+dateFormatString+")"),
 			widget.NewEntryWithData(expiration),
+			widget.NewLabel("Starting folder"),
+			widget.NewEntryWithData(startingfolder),
 		),
 	)
 	preferencesWindow.SetCloseIntercept(func() {
@@ -678,7 +683,7 @@ func FileFinderWindow(thispath string) {
 }
 
 func LocalFileSelectorWindow() {
-	dialog.ShowFolderOpen(
+	open := dialog.NewFolderOpen(
 		func(directory fyne.ListableURI, err error) {
 			if directory == nil {
 				return
@@ -723,6 +728,12 @@ func LocalFileSelectorWindow() {
 		},
 		mainWindow,
 	)
+	x, y := storage.ListerForURI(repository.NewFileURI(thisApp.Preferences().String("startingfolder")))
+	if y == nil {
+		open.SetLocation(x)
+	}
+
+	open.Show()
 }
 
 func isFileImage(filename string) (string, bool) {
