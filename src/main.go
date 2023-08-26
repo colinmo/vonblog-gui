@@ -204,7 +204,7 @@ func mainWindowSetup() {
 	formEntries = map[string]*widget.Entry{
 		"Title":        MakeEntryWithText(thisPost.Frontmatter.Title),
 		"Tags":         MakeEntryWithText(strings.Join(thisPost.Frontmatter.Tags, ",")),
-		"Created":      MakeEntryWithText(time.Now().Format(dateFormatString)),
+		"Created":      MakeEntryWithText(""),
 		"Updated":      MakeEntryWithText(""),
 		"Synopsis":     MakeEntryWithText(thisPost.Frontmatter.Synopsis),
 		"FeatureImage": MakeEntryWithText(thisPost.Frontmatter.FeatureImage),
@@ -232,9 +232,6 @@ func mainWindowSetup() {
 		"Type":         MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
 		"Status":       MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
 		"Event.Status": MakeSelectWithOptions([]string{"proposed", "open", "cancelled", "done"}, thisPost.Frontmatter.Event.Status),
-	}
-	formDates := map[string]*DateSelector{
-		"Created": MakeDateWithDate(time.Now()),
 	}
 	formCheckbox = map[string]*widget.Check{
 		"Mastodon": widget.NewCheck("M", func(b bool) {}),
@@ -322,7 +319,6 @@ func mainWindowSetup() {
 								widget.NewForm(
 									[]*widget.FormItem{
 										{Text: "Created", Widget: formEntries["Created"]},
-										{Text: "Cre2", Widget: formDates["Created"].CreateWidget()},
 										{Text: "Updated", Widget: formEntries["Updated"]},
 										{Text: "", Widget: widget.NewLabel("Syndication [XPOST to make]")},
 										{Text: "Mastodon", Widget: formEntries["Mastodon"]},
