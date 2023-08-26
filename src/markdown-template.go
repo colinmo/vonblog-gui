@@ -23,7 +23,7 @@ var markdownHTMLHeader = string(`<!DOCTYPE html>
         <div id="top-right" class="decorative-tops"></div>
         <div id="bottom-left" class="decorative-tops"></div>
         <div id="bottom-right" class="decorative-tops"></div>
-        <section id="introduction" class="h-card" contenteditable="true" spellcheck="true">`)
+        <section  contenteditable="true" spellcheck="true">`)
 
 var markdownHTMLFooter = string(`</section>
 </body>

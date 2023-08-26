@@ -220,13 +220,21 @@ func mainWindowSetup() {
 		"Item.Name":  MakeEntryWithText(thisPost.Frontmatter.Item.Name),
 		"Item.URL":   MakeEntryWithText(thisPost.Frontmatter.Item.URL),
 		"Item.Image": MakeEntryWithText(thisPost.Frontmatter.Item.Image),
+
+		"Event.Start":    MakeEntryWithText(thisPost.Frontmatter.Event.Start),
+		"Event.End":      MakeEntryWithText(thisPost.Frontmatter.Event.End),
+		"Event.Location": MakeEntryWithText(thisPost.Frontmatter.Event.Location),
 	}
 	formSlider = map[string]*widget.Slider{
 		"Item.Rating": MakeSliderWithValue(thisPost.Frontmatter.Item.Rating),
 	}
 	formSelect = map[string]*widget.Select{
-		"Type":   MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
-		"Status": MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
+		"Type":         MakeSelectWithOptions([]string{"article", "reply", "indieweb", "tweet", "resume", "event", "page", "review"}, thisPost.Frontmatter.Type),
+		"Status":       MakeSelectWithOptions([]string{"draft", "live", "retired"}, thisPost.Frontmatter.Status),
+		"Event.Status": MakeSelectWithOptions([]string{"proposed", "open", "cancelled", "done"}, thisPost.Frontmatter.Event.Status),
+	}
+	formDates := map[string]*DateSelector{
+		"Created": MakeDateWithDate(time.Now()),
 	}
 	formCheckbox = map[string]*widget.Check{
 		"Mastodon": widget.NewCheck("M", func(b bool) {}),
@@ -314,6 +322,7 @@ func mainWindowSetup() {
 								widget.NewForm(
 									[]*widget.FormItem{
 										{Text: "Created", Widget: formEntries["Created"]},
+										{Text: "Cre2", Widget: formDates["Created"].CreateWidget()},
 										{Text: "Updated", Widget: formEntries["Updated"]},
 										{Text: "", Widget: widget.NewLabel("Syndication [XPOST to make]")},
 										{Text: "Mastodon", Widget: formEntries["Mastodon"]},
@@ -335,18 +344,13 @@ func mainWindowSetup() {
 							),
 							widget.NewAccordionItem(
 								"Event",
-								container.NewVBox(
-									widget.NewForm(
-										[]*widget.FormItem{}...,
-									),
-								),
-							),
-							widget.NewAccordionItem(
-								"Resume",
-								container.NewVBox(
-									widget.NewForm(
-										[]*widget.FormItem{}...,
-									),
+								widget.NewForm(
+									[]*widget.FormItem{
+										{Text: "Start", Widget: formEntries["Event.Start"]},
+										{Text: "End", Widget: formEntries["Event.End"]},
+										{Text: "Status", Widget: formSelect["Event.Status"]},
+										{Text: "Location", Widget: formEntries["Event.Location"]},
+									}...,
 								),
 							),
 							widget.NewAccordionItem(
@@ -562,6 +566,12 @@ func UpdateAllFields(formEntries map[string]*widget.Entry, formSelect map[string
 		formEntries["Item.Name"].SetText(thisPost.Frontmatter.Item.Name)
 		formSlider["Item.Rating"].SetValue(float64(thisPost.Frontmatter.Item.Rating))
 	}
+	if len(thisPost.Frontmatter.Event.Start) > 0 {
+		formEntries["Event.Start"].SetText(thisPost.Frontmatter.Event.Start)
+		formEntries["Event.End"].SetText(thisPost.Frontmatter.Event.End)
+		formEntries["Event.Location"].SetText(thisPost.Frontmatter.Event.Location)
+		formSelect["Event.Status"].SetSelected(thisPost.Frontmatter.Event.Status)
+	}
 	/*
 		formMedia := []struct {
 			URL  string
@@ -584,20 +594,28 @@ func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*w
 	thisPost.Frontmatter.Title = formEntries["Title"].Text
 	thisPost.Frontmatter.Tags = strings.Split(formEntries["Tags"].Text, ",")
 	thisPost.Frontmatter.Created = formEntries["Created"].Text
-	thisPost.Frontmatter.Updated = formEntries["Updated"].Text
+	if len(formEntries["Updated"].Text) == 0 {
+		formEntries["Updated"].Text = thisPost.Frontmatter.Updated
+	} else {
+		thisPost.Frontmatter.Updated = formEntries["Updated"].Text
+	}
 	thisPost.Frontmatter.Synopsis = formEntries["Synopsis"].Text
 	if formCheckbox["Mastodon"].Checked && formEntries["Mastodon"].Text == "" {
-		formEntries["Mastodon"].Text = "XPOST"
+		thisPost.Frontmatter.SyndicationLinks.Mastodon = "XPOST"
+	} else {
+		thisPost.Frontmatter.SyndicationLinks.Mastodon = formEntries["Mastodon"].Text
 	}
-	thisPost.Frontmatter.SyndicationLinks.Mastodon = formEntries["Mastodon"].Text
 	thisPost.Frontmatter.FeatureImage = formEntries["FeatureImage"].Text
 	thisPost.Frontmatter.InReplyTo = formEntries["InReplyTo"].Text
 	thisPost.Frontmatter.BookmarkOf = formEntries["BookmarkOf"].Text
 	thisPost.Frontmatter.FavoriteOf = formEntries["FavoriteOf"].Text
 	thisPost.Frontmatter.RepostOf = formEntries["RepostOf"].Text
 	thisPost.Frontmatter.LikeOf = formEntries["LikeOf"].Text
-	thisPost.Frontmatter.Slug = cleanName(thisPost.Frontmatter.Title) + ".html"
+	if len(thisPost.Frontmatter.Slug) == 0 {
+		thisPost.Frontmatter.Slug = cleanName(thisPost.Frontmatter.Title) + ".html"
+	}
 
+	// Review
 	if len(formEntries["Item.Name"].Text) > 0 {
 		thisPost.Frontmatter.Item.Name = formEntries["Item.Name"].Text
 		thisPost.Frontmatter.Item.Image = formEntries["Item.Image"].Text
@@ -607,19 +625,14 @@ func FieldsToPost(formEntries map[string]*widget.Entry, formSelect map[string]*w
 	} else {
 		thisPost.Frontmatter.Item = ItemS{}
 	}
-	/*
-		formMedia := []struct {
-			URL  string
-			File image.NRGBA
-		}{}
-	*/
-	/*
-		AttachedMedia    []string
-		SyndicationLinks SyndicationLinksS
-		Event            Event
-		Resume           Resume
-		Item             ItemS
-	*/
+	if len(formEntries["Event.Start"].Text) > 0 {
+		thisPost.Frontmatter.Event.Start = formEntries["Event.Start"].Text
+		thisPost.Frontmatter.Event.End = formEntries["Event.End"].Text
+		thisPost.Frontmatter.Event.Location = formEntries["Event.Location"].Text
+		thisPost.Frontmatter.Event.Status = formSelect["Event.Status"].Selected
+	} else {
+		thisPost.Frontmatter.Event = Event{}
+	}
 	thisPost.Frontmatter.Type = formSelect["Type"].Selected
 	thisPost.Frontmatter.Status = formSelect["Status"].Selected
 }

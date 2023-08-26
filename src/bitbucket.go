@@ -59,23 +59,34 @@ type Attachment struct {
 
 var toUpload = []Attachment{}
 
-func (b *BitBucket) GetFileContents(path string) (string, error) {
+func (b *BitBucket) MakeRequestToTalkToEndpoint(method string, path []string, body *bytes.Reader) *http.Request {
+	b.RefreshIfRequired()
 	fullUrl, _ := url.JoinPath(
 		thisApp.Preferences().String("baseurl"),
-		`/repositories/`,
-		thisApp.Preferences().String("workspacekey"),
-		`/`,
-		thisApp.Preferences().String("reposslug"),
-		`/src/HEAD/`,
-		path,
+		path...,
 	)
 	request, _ := http.NewRequest(
 		"GET",
 		fullUrl,
-		bytes.NewBuffer([]byte("")),
-	)
+		body)
+
 	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
 	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+	return request
+}
+
+func (b *BitBucket) GetFileContents(path string) (string, error) {
+	request := b.MakeRequestToTalkToEndpoint(
+		"GET",
+		[]string{
+			thisApp.Preferences().String("workspacekey"),
+			`/`,
+			thisApp.Preferences().String("reposslug"),
+			`/src/HEAD/`,
+			path,
+		},
+		bytes.NewReader([]byte("")),
+	)
 	resp, err := Client.Do(request)
 	if err != nil {
 		return "", err
@@ -114,23 +125,19 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 	if len(path) > 1 {
 		toReturn[".."] = "x"
 	}
-	fullUrl, _ := url.JoinPath(
-		thisApp.Preferences().String("baseurl"),
-		`/repositories/`,
-		thisApp.Preferences().String("workspacekey"),
-		`/`,
-		thisApp.Preferences().String("reposslug"),
-		`/src/HEAD/`,
-		path,
+	request := b.MakeRequestToTalkToEndpoint(
+		"GET",
+		[]string{
+			`/repositories/`,
+			thisApp.Preferences().String("workspacekey"),
+			`/`,
+			thisApp.Preferences().String("reposslug"),
+			`/src/HEAD/`,
+			path,
+		},
+		bytes.NewReader([]byte("")),
 	)
-	for len(fullUrl) > 0 {
-		request, _ := http.NewRequest(
-			"GET",
-			fullUrl,
-			bytes.NewBuffer([]byte("")),
-		)
-		request.Header.Set("Content-type", "application/x-www-form-urlencoded")
-		request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+	for {
 		resp, err := Client.Do(request)
 		if err != nil {
 			return toReturn, err
@@ -150,104 +157,17 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 		if len(j.Next) == 0 {
 			break
 		}
-		fullUrl = j.Next
+		request.URL, err = url.Parse(j.Next)
+		if err != nil {
+			break
+		}
 	}
 
 	return toReturn, nil
 }
 
-// @todo: Pagination
-func (b *BitBucket) GetProjects() ([]string, error) {
-	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"),
-		`/repositories/`,
-		thisApp.Preferences().String("workspacekey"),
-		`/`,
-		thisApp.Preferences().String("reposslug"),
-		`/src/HEAD/`,
-	)
-	request, _ := http.NewRequest(
-		"GET",
-		fullUrl,
-		bytes.NewBuffer([]byte("")),
-	)
-	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
-	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
-	resp, err := Client.Do(request)
-	if err != nil {
-		return []string{}, err
-	}
-	defer resp.Body.Close()
-	var j interface{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
-	return []string{}, err
-}
-
-func (b *BitBucket) GetCurrentUser() (string, error) {
-	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `user`)
-	request, _ := http.NewRequest(
-		"GET",
-		fullUrl,
-		bytes.NewBuffer([]byte("")),
-	)
-	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
-	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
-	resp, err := Client.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	var j interface{}
-	err = json.NewDecoder(resp.Body).Decode(&j)
-	return "", err
-
-}
-
-func (b *BitBucket) GetUserWorkspaces() {
-	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `user/permissions/workspaces`)
-	request, _ := http.NewRequest(
-		"GET",
-		fullUrl,
-		bytes.NewBuffer([]byte("")),
-	)
-	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
-	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
-	resp, err := Client.Do(request)
-	if err != nil {
-		log.Fatal("Bah")
-	}
-	defer resp.Body.Close()
-	var j interface{}
-	json.NewDecoder(resp.Body).Decode(&j)
-}
-
-func (b *BitBucket) GetRepositories() {
-	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `repositories/`+thisApp.Preferences().String("workspacekey"))
-	request, _ := http.NewRequest(
-		"GET",
-		fullUrl,
-		bytes.NewBuffer([]byte("")),
-	)
-	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
-	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
-	resp, err := Client.Do(request)
-	if err != nil {
-		log.Fatal("Bah")
-	}
-	defer resp.Body.Close()
-	var j interface{}
-	json.NewDecoder(resp.Body).Decode(&j)
-}
-
+// file upload help: https://community.atlassian.com/t5/Bitbucket-questions/How-to-commit-multiple-files-from-memory-using-bitbucket-API/qaq-p/1845800
 func (b *BitBucket) UploadPost() {
-	// file upload help: https://community.atlassian.com/t5/Bitbucket-questions/How-to-commit-multiple-files-from-memory-using-bitbucket-API/qaq-p/1845800
-	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"),
-		`/repositories/`,
-		thisApp.Preferences().String("workspacekey"),
-		`/`,
-		thisApp.Preferences().String("reposslug"),
-		`/src`,
-	)
-
 	if len(thisPost.Filename) == 0 {
 		if thisPost.Frontmatter.Type == "page" {
 			thisPost.Filename = "posts/" + thisPost.Frontmatter.Type + cleanName(thisPost.Frontmatter.Title) + ".md"
@@ -262,7 +182,6 @@ func (b *BitBucket) UploadPost() {
 	writer.WriteField(thisPost.Filename, "---\n"+string(content)+"---\n"+thisPost.Contents)
 
 	for _, z := range toUpload {
-		// @Todo: If this is an image, upload a thumbnail too.
 		part, _ := writer.CreateFormFile(z.RemotePath, z.RemotePath)
 		b, _ := os.Open(z.LocalFile)
 		defer b.Close()
@@ -281,20 +200,23 @@ func (b *BitBucket) UploadPost() {
 		}
 	}
 	writer.Close()
-
-	request, _ := http.NewRequest(
-		"POST",
-		fullUrl,
+	request := b.MakeRequestToTalkToEndpoint(
+		"GET",
+		[]string{
+			`/repositories/`,
+			thisApp.Preferences().String("workspacekey"),
+			`/`,
+			thisApp.Preferences().String("reposslug"),
+			`/src`,
+		},
 		bytes.NewReader(body.Bytes()),
 	)
 	request.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", writer.Boundary()))
 	request.Header.Set("Content-Length", fmt.Sprintf("%d", body.Len()))
-	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
 	request.Header.Set("Accept", "application/json")
 	resp, err := Client.Do(request)
 	if err != nil {
 		fmt.Printf("Failure %v\n", err)
-		log.Fatal("Bah")
 	}
 
 	defer resp.Body.Close()
@@ -424,3 +346,86 @@ func readImage(name string) (image.Image, error) {
 	}
 	return img, nil
 }
+
+/*
+// @todo: Pagination
+func (b *BitBucket) GetProjects() ([]string, error) {
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"),
+		`/repositories/`,
+		thisApp.Preferences().String("workspacekey"),
+		`/`,
+		thisApp.Preferences().String("reposslug"),
+		`/src/HEAD/`,
+	)
+	request, _ := http.NewRequest(
+		"GET",
+		fullUrl,
+		bytes.NewBuffer([]byte("")),
+	)
+	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
+	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+	resp, err := Client.Do(request)
+	if err != nil {
+		return []string{}, err
+	}
+	defer resp.Body.Close()
+	var j interface{}
+	err = json.NewDecoder(resp.Body).Decode(&j)
+	return []string{}, err
+}
+
+func (b *BitBucket) GetCurrentUser() (string, error) {
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `user`)
+	request, _ := http.NewRequest(
+		"GET",
+		fullUrl,
+		bytes.NewBuffer([]byte("")),
+	)
+	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
+	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+	resp, err := Client.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	var j interface{}
+	err = json.NewDecoder(resp.Body).Decode(&j)
+	return "", err
+}
+
+func (b *BitBucket) GetUserWorkspaces() {
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `user/permissions/workspaces`)
+	request, _ := http.NewRequest(
+		"GET",
+		fullUrl,
+		bytes.NewBuffer([]byte("")),
+	)
+	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
+	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+	resp, err := Client.Do(request)
+	if err != nil {
+		log.Fatal("Bah")
+	}
+	defer resp.Body.Close()
+	var j interface{}
+	json.NewDecoder(resp.Body).Decode(&j)
+}
+
+func (b *BitBucket) GetRepositories() {
+	fullUrl, _ := url.JoinPath(thisApp.Preferences().String("baseurl"), `repositories/`+thisApp.Preferences().String("workspacekey"))
+	request, _ := http.NewRequest(
+		"GET",
+		fullUrl,
+		bytes.NewBuffer([]byte("")),
+	)
+	request.Header.Set("Content-type", "application/x-www-form-urlencoded")
+	request.Header.Set("Authorization", "Bearer "+b.AccessToken)
+	resp, err := Client.Do(request)
+	if err != nil {
+		log.Fatal("Bah")
+	}
+	defer resp.Body.Close()
+	var j interface{}
+	json.NewDecoder(resp.Body).Decode(&j)
+}
+*/
