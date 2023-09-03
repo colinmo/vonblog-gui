@@ -1,8 +1,8 @@
 Website = "https://vonexplaino.com"
 
 [Details]
-  Icon = "Icon.png"
-  Name = "vonPost"
-  ID = "com.vonexplaino.vonpost"
-  Version = "1.0.0"
-  Build = 18
+Icon = "Icon-min.png"
+Name = "von Post"
+ID = "com.vonexplaino.vonpost"
+Version = "1.0.0"
+Build = 18

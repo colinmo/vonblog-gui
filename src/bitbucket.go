@@ -66,7 +66,7 @@ func (b *BitBucket) MakeRequestToTalkToEndpoint(method string, path []string, bo
 		path...,
 	)
 	request, _ := http.NewRequest(
-		"GET",
+		method,
 		fullUrl,
 		body)
 
@@ -128,11 +128,11 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 	request := b.MakeRequestToTalkToEndpoint(
 		"GET",
 		[]string{
-			`/repositories/`,
+			`repositories`,
 			thisApp.Preferences().String("workspacekey"),
-			`/`,
 			thisApp.Preferences().String("reposslug"),
-			`/src/HEAD/`,
+			`src`,
+			`HEAD`,
 			path,
 		},
 		bytes.NewReader([]byte("")),
@@ -167,7 +167,7 @@ func (b *BitBucket) GetFiles(path string) (map[string]string, error) {
 }
 
 // file upload help: https://community.atlassian.com/t5/Bitbucket-questions/How-to-commit-multiple-files-from-memory-using-bitbucket-API/qaq-p/1845800
-func (b *BitBucket) UploadPost() {
+func (b *BitBucket) UploadPost() error {
 	if len(thisPost.Filename) == 0 {
 		if thisPost.Frontmatter.Type == "page" {
 			thisPost.Filename = "posts/" + thisPost.Frontmatter.Type + cleanName(thisPost.Frontmatter.Title) + ".md"
@@ -200,14 +200,16 @@ func (b *BitBucket) UploadPost() {
 		}
 	}
 	writer.Close()
+	z := body.Bytes()
+	body.Reset()
+	body.Write(z)
 	request := b.MakeRequestToTalkToEndpoint(
-		"GET",
+		"POST",
 		[]string{
-			`/repositories/`,
+			`repositories`,
 			thisApp.Preferences().String("workspacekey"),
-			`/`,
 			thisApp.Preferences().String("reposslug"),
-			`/src`,
+			`src`,
 		},
 		bytes.NewReader(body.Bytes()),
 	)
@@ -220,8 +222,17 @@ func (b *BitBucket) UploadPost() {
 	}
 
 	defer resp.Body.Close()
-	var j interface{}
-	json.NewDecoder(resp.Body).Decode(&j)
+	//var j interface{}
+	//json.NewDecoder(resp.Body).Decode(&j)
+	if resp.StatusCode != 201 {
+		return fmt.Errorf(
+			"did not save, %d\n%s\n%s",
+			resp.StatusCode,
+			resp.Request.URL.RequestURI(),
+			z,
+		)
+	}
+	return nil
 }
 
 func (b *BitBucket) Authenticate(w http.ResponseWriter, r *http.Request) {

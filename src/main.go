@@ -225,6 +225,8 @@ func mainWindowSetup() {
 		"Event.End":      MakeEntryWithText(thisPost.Frontmatter.Event.End),
 		"Event.Location": MakeEntryWithText(thisPost.Frontmatter.Event.Location),
 	}
+	formEntries["Created"].SetPlaceHolder("YYYY-MM-DDTHH:MI:SS+1000")
+	formEntries["Updated"].SetPlaceHolder("YYYY-MM-DDTHH:MI:SS+1000")
 	formSlider = map[string]*widget.Slider{
 		"Item.Rating": MakeSliderWithValue(thisPost.Frontmatter.Item.Rating),
 	}
@@ -236,6 +238,7 @@ func mainWindowSetup() {
 	formCheckbox = map[string]*widget.Check{
 		"Mastodon": widget.NewCheck("M", func(b bool) {}),
 	}
+	var content *fyne.Container
 	menu := widget.NewToolbar(
 		widget.NewToolbarAction(theme.FolderOpenIcon(), func() {
 			// @todo: Prompt to save first.
@@ -262,33 +265,42 @@ func mainWindowSetup() {
 		}),
 		widget.NewToolbarAction(theme.DocumentSaveIcon(), func() {
 			// Validate/ parse fields as required
+			FieldsToPost(formEntries, formSelect)
 			frontMatterDefaults(&thisPost.Frontmatter)
 			errors := frontMatterValidate(&thisPost.Frontmatter)
-			FieldsToPost(formEntries, formSelect)
 			thisPost.Contents = markdownInput.Text
 			if len(errors) > 0 {
 				fmt.Printf("Failed: %v\n", errors)
 			} else {
-				bitbucket.UploadPost()
+				err := bitbucket.UploadPost()
+				if err != nil {
+					fmt.Printf("FAILED: %s\n", err)
+					widget.ShowModalPopUp(
+						widget.NewLabel(fmt.Sprintf("ERROR: %s", err)),
+						mainWindow.Canvas(),
+					)
+				}
 				// Handle response
 			}
 		}),
-		widget.NewToolbarAction(theme.DocumentPrintIcon(), func() {
-			targetFolder := filepath.Join(os.TempDir(), "vonblog")
-			_, err := os.Stat(targetFolder)
-			if !os.IsNotExist(err) {
-				os.RemoveAll(targetFolder)
-			}
-			os.Mkdir(targetFolder, 0770)
-			tmpFile, _ := os.CreateTemp(targetFolder, "markdownpreview-*.html")
-			// @todo: copy any uploaded images
-			tmpFile.Write([]byte(markdownHTMLHeader))
-			tmpFile.Write([]byte(markdownToHtml(markdownInput.Text)))
-			tmpFile.Write([]byte(markdownHTMLFooter))
-			tmpFile.Close()
-			browser.OpenFile(tmpFile.Name())
-			time.Sleep(time.Second * 2)
-		}),
+		widget.NewToolbarAction(
+			resourcePreviewSvg,
+			func() {
+				targetFolder := filepath.Join(os.TempDir(), "vonblog")
+				_, err := os.Stat(targetFolder)
+				if !os.IsNotExist(err) {
+					os.RemoveAll(targetFolder)
+				}
+				os.Mkdir(targetFolder, 0770)
+				tmpFile, _ := os.CreateTemp(targetFolder, "markdownpreview-*.html")
+				// @todo: copy any uploaded images
+				tmpFile.Write([]byte(markdownHTMLHeader))
+				tmpFile.Write([]byte(markdownToHtml(markdownInput.Text)))
+				tmpFile.Write([]byte(markdownHTMLFooter))
+				tmpFile.Close()
+				browser.OpenFile(tmpFile.Name())
+				time.Sleep(time.Second * 2)
+			}),
 		widget.NewToolbarSeparator(),
 		widget.NewToolbarAction(theme.InfoIcon(), func() {
 			// Popup window for title etc.
@@ -465,7 +477,7 @@ func mainWindowSetup() {
 			mainWindow.Clipboard().SetContent(oldClipboard)
 		}),
 	)
-	content := container.NewBorder(
+	content = container.NewBorder(
 		container.NewVBox(
 			container.NewHBox(menu),
 			container.New(
@@ -509,7 +521,7 @@ func mainWindowSetup() {
 		nil,
 		nil,
 		nil,
-		container.NewMax(markdownInput),
+		container.NewStack(markdownInput),
 	)
 	mainWindow.SetContent(content)
 	mainWindow.SetCloseIntercept(func() {

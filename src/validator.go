@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -156,7 +157,7 @@ func parseUnknownDateFormat(dateString string) (time.Time, error) {
 	var mn int
 
 	if len(dateString) == 0 {
-		return newTime, err
+		return newTime, fmt.Errorf("empty date")
 	}
 	l = parseUnknownTimezone(dateString)
 	re := regexp.MustCompile(`(\d{1,2}):(\d{1,2})[: ]((\d{1,2})|([ap]m))`)
@@ -180,7 +181,7 @@ func setEmptyStringDefault(value string, ifempty string) string {
 }
 
 func textToSlug(intext string) string {
-	re := regexp.MustCompile("[^.a-zA-Z0-9-]")
+	re := regexp.MustCompile("[^.a-zA-Z0-9-]+")
 	slug := strings.ToLower(re.ReplaceAllString(intext, "-"))
 	re = regexp.MustCompile("-+")
 	slug = re.ReplaceAllString(slug, "-")

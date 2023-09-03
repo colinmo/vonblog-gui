@@ -9,7 +9,3 @@ build-linux-windows:
 clean:
 	cd f:\Dropbox\swap\golang\vonblog\bin && del vonpost
 	cd f:\Dropbox\swap\golang\vonblog\bin && del vonpost.exe
-
-
-spell:
-	set GOOS=windows&&set GOARCH=amd64&&set CGO_CFLAGS="-IE:/Laboratory/Utility/aspell-dev-0-50-3-3/include"&&go build -ldflags "-w -s -H=windowsgui" -o ../bin/vonpost.exe
