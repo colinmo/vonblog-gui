@@ -103,6 +103,12 @@ func setup() {
 	startLocalServers()
 	thisApp = app.NewWithID("com.vonexplaino.vonblog")
 	thisApp.SetIcon(fyne.NewStaticResource("Systray", icon.Data))
+	thisApp.Lifecycle().SetOnStarted(func() {
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			setActivationPolicy()
+		}()
+	})
 	preferencesWindow = thisApp.NewWindow("Preferences")
 	preferencesWindowSetup()
 	clientkey := binding.BindPreferenceString("clientkey", thisApp.Preferences())
