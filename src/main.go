@@ -287,6 +287,7 @@ func mainWindowSetup() {
 					)
 				}
 				// Handle response
+				formEntries["Mastodon"].SetText(thisPost.Frontmatter.SyndicationLinks.Mastodon)
 			}
 		}),
 		widget.NewToolbarAction(
