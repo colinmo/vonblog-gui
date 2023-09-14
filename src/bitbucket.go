@@ -232,6 +232,45 @@ func (b *BitBucket) UploadPost() error {
 			z,
 		)
 	}
+	// If the Syndication.Mastodon == 'XPOST' then poll until we get an updated commit
+	for thisPost.Syndication.Mastodon == "XPOST" {
+		request := b.MakeRequestToTalkToEndpoint(
+			"GET",
+			[]string{
+				`repositories`,
+				thisApp.Preferences().String("workspacekey"),
+				thisApp.Preferences().String("reposslug"),
+				`commits`,
+			},
+			bytes.NewReader(body.Bytes()),
+		)
+		request.Header.Set("Accept", "application/json")
+		resp, err := Client.Do(request)
+		if err != nil {
+			fmt.Printf("Failure %v\n", err)
+		}
+	
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return fmt.Errorf(
+				"failed to get response from XPOST change, %d\n%s\n%s",
+				resp.StatusCode,
+				resp.Request.URL.RequestURI(),
+				z,
+			)
+		}
+		var j struct{
+			Values []struct{
+				Message string `json:message`
+				
+			} `json:values`
+		}
+		json.NewDecoder(resp.Body).Decode(&j)
+		if j.Values[0].Message[0:4] == "XPOST" {
+			thisPost.Syndication.Mastodon = j.Values[0].Message[7:]
+			return nil
+		}
+	}
 	return nil
 }
 
