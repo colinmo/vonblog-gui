@@ -103,6 +103,7 @@ func setup() {
 	startLocalServers()
 	thisApp = app.NewWithID("com.vonexplaino.vonblog")
 	thisApp.SetIcon(fyne.NewStaticResource("Systray", icon.Data))
+	hideMeIfNotWindows()
 	preferencesWindow = thisApp.NewWindow("Preferences")
 	preferencesWindowSetup()
 	clientkey := binding.BindPreferenceString("clientkey", thisApp.Preferences())
