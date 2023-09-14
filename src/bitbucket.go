@@ -233,7 +233,7 @@ func (b *BitBucket) UploadPost() error {
 		)
 	}
 	// If the Syndication.Mastodon == 'XPOST' then poll until we get an updated commit
-	for thisPost.Syndication.Mastodon == "XPOST" {
+	for thisPost.Frontmatter.SyndicationLinks.Mastodon == "XPOST" {
 		request := b.MakeRequestToTalkToEndpoint(
 			"GET",
 			[]string{
@@ -267,7 +267,7 @@ func (b *BitBucket) UploadPost() error {
 		}
 		json.NewDecoder(resp.Body).Decode(&j)
 		if j.Values[0].Message[0:4] == "XPOST" {
-			thisPost.Syndication.Mastodon = j.Values[0].Message[7:]
+			thisPost.Frontmatter.SyndicationLinks.Mastodon = j.Values[0].Message[7:]
 			return nil
 		}
 	}
