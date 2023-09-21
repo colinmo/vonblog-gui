@@ -79,6 +79,7 @@ func (b *BitBucket) GetFileContents(path string) (string, error) {
 	request := b.MakeRequestToTalkToEndpoint(
 		"GET",
 		[]string{
+			`repositories`,
 			thisApp.Preferences().String("workspacekey"),
 			`/`,
 			thisApp.Preferences().String("reposslug"),
@@ -249,7 +250,7 @@ func (b *BitBucket) UploadPost() error {
 		if err != nil {
 			fmt.Printf("Failure %v\n", err)
 		}
-	
+
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
 			return fmt.Errorf(
@@ -259,10 +260,9 @@ func (b *BitBucket) UploadPost() error {
 				z,
 			)
 		}
-		var j struct{
-			Values []struct{
+		var j struct {
+			Values []struct {
 				Message string `json:message`
-				
 			} `json:values`
 		}
 		json.NewDecoder(resp.Body).Decode(&j)

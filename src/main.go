@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -694,8 +695,14 @@ func FileFinderWindow(thispath string) {
 		fileFinder.Show()
 	} else {
 		// When loading a file to edit, you have to store the sourceCommitId to save later
-		contents, _ := bitbucket.GetFileContents(thispath)
-		x, y, _ := parseString(contents)
+		contents, e := bitbucket.GetFileContents(thispath)
+		if e != nil {
+			log.Fatalf("Failed to get file from bitbucket %s", e)
+		}
+		x, y, e := parseString(contents)
+		if e != nil {
+			log.Fatalf("Failed to parse file %s\n", e)
+		}
 		thisPost.Contents = strings.Trim(x, "\n\r ")
 		markdownInput.Text = strings.Trim(x, "\r\n ")
 		markdownInput.Refresh()

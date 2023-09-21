@@ -18,16 +18,17 @@ func parseString(body string) (string, FrontMatter, error) {
 	var frontMatter FrontMatter
 
 	// Parse the frontmatter at the start of the file
-	split := strings.SplitN(body[3:], "---", 2)
-	if len(split) != 2 {
-		return markdown, frontMatter, err
+	split := strings.SplitN(body, "---", 3)
+	if len(split) != 3 {
+		fmt.Printf("Body:\n%s\n", body)
+		return markdown, frontMatter, fmt.Errorf("could not parse file")
 	}
-	frontMatter, err = parseFrontMatter(split[0])
+	frontMatter, err = parseFrontMatter(split[1])
 	if err != nil {
-		return markdown, frontMatter, err
+		return markdown, frontMatter, fmt.Errorf("bad frontmatter format")
 	}
-	markdown = strings.Join(split[1:], "---")
-	return markdown, frontMatter, err
+	markdown = strings.Join(split[2:], "---")
+	return markdown, frontMatter, nil
 }
 
 func parseFrontMatter(inFrontMatter string) (FrontMatter, error) {
