@@ -281,6 +281,28 @@ func mainWindowSetup() {
 						widget.NewLabel(fmt.Sprintf("ERROR: %s", err)),
 						mainWindow.Canvas(),
 					)
+				} else {
+					var watchFor string
+					if thisPost.Frontmatter.Type == "post" {
+						watchFor = fmt.Sprintf(
+							"Check for /blog/posts/%s/%s",
+							thisPost.Frontmatter.Type,
+							thisPost.Frontmatter.Slug,
+						)
+					} else {
+						watchFor = fmt.Sprintf(
+							"Check for /blog/posts/%s/%s/%s/%s",
+							thisPost.Frontmatter.Type,
+							strings.Split(thisPost.Frontmatter.Created, "-")[0],
+							strings.Split(thisPost.Frontmatter.Created, "-")[1],
+							thisPost.Frontmatter.Slug,
+						)
+					}
+					fmt.Printf("%s\n", watchFor)
+					// @todo: Wait for the page to be regenerated
+					// (the Updated dates to match)
+					// then update things like Mastodon
+					// syndication.
 				}
 				// Handle response
 				formEntries["Mastodon"].SetText(thisPost.Frontmatter.SyndicationLinks.Mastodon)
