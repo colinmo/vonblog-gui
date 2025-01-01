@@ -376,7 +376,7 @@ func startLocalServers() {
 		bitbucket.Authenticate(w, r)
 	})
 	go func() {
-		AuthWebServer = &http.Server{Addr: ":85", Handler: nil}
+		AuthWebServer = &http.Server{Addr: ":1025", Handler: nil}
 		if err := AuthWebServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
